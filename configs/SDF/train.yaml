@@ -1,0 +1,44 @@
+seed: 123456790
+wandb:
+  use: false
+  project: SDF
+  entity: shuyumo1
+
+default_root_dir: training_root_dir/SDF
+
+dataset_n_dataloader:
+  batch_size: 8
+  n_workers: 12
+
+  dataset_dir: data/datasets
+  samples_per_mesh: 16000
+  pc_size: 2048
+  uniform_sample_ratio: 0.3
+
+SdfModelSpecs:
+  tanh_act: False
+  skip_connection: True
+  hidden_dim: 512
+  latent_dim: 256
+  pn_hidden_dim: 128
+  num_layers: 9
+
+evaluation:
+  max_batch: 262144  # 2^18
+  eval_mesh_output_path: log/SDF/tempmeshes
+  resolution: 256
+  count: 20
+  freq: 500
+
+checkpoint:
+  path: log/SDF/checkpoints
+  freq: 50
+
+
+
+num_epochs: 1000001
+kld_weight: 0.001
+latent_std: 0.25
+latent_dim: 786
+
+sdf_lr: 0.0001
