@@ -42,14 +42,10 @@ class TransDiffusionCombineModel(TransArticulatedBaseModule):
         self.diffusion = DiffusionModel(diffusion_core, config)
 
         self.e_config = config['evaluation']
-        self.sdf = SDFAutoEncoder(load_config_from_yaml(self.e_config['sdf_config_path']))
-        ckpt = torch.load(self.e_config['sdf_path'], map_location=self._device)
-        self.sdf.load_state_dict(ckpt['state_dict'])
+        self.sdf = SDFAutoEncoder.load_from_checkpoint(self.e_config['sdf_model_path'])
         self.sdf.eval()
-        self.sdf.vae_model.eval()
         self.e_config['eval_mesh_output_path'] = Path(self.e_config['eval_mesh_output_path'] )
         self.e_config['eval_mesh_output_path'].mkdir(parents=True, exist_ok=True)
-        self.n_validation = 0
 
         if 'logger' in config:
             self.w_logger = config['logger']
@@ -88,6 +84,7 @@ class TransDiffusionCombineModel(TransArticulatedBaseModule):
             }
 
     def training_step(self, batch, batch_idx):
+        self.train()
         input, output, padding_mask,   \
             end_token_mask, enc_data, enc_data_raw = batch
         '''
@@ -125,6 +122,8 @@ class TransDiffusionCombineModel(TransArticulatedBaseModule):
             'train_diff_loss': diff_loss,
             'train_diff_100_loss': diff_100_loss,
             'train_diff_1000_loss': diff_1000_loss,
+            'transformer_lr': self._optimizer.param_groups[1]['lr'],
+            'diffusion_lr': self._optimizer.param_groups[0]['lr'],
         })
 
         return loss
@@ -132,6 +131,7 @@ class TransDiffusionCombineModel(TransArticulatedBaseModule):
     # 没有验证集，这里仅作为可视化部分
     @torch.no_grad()
     def validation_step(self, batch, batch_idx):
+        self.eval()
         input, output, padding_mask, _, enc_data, _ = batch
         '''
             padding_mask:    1 -> not padding token, 0 -> padding token
@@ -152,17 +152,18 @@ class TransDiffusionCombineModel(TransArticulatedBaseModule):
             self.diffusion.diffusion_model_from_latent(gt_latent, cond=pr_condition)
 
         z = z.view_as(gt_latent)
-        pr_non_pad_token = torch.cat((pr_non_pad_token_con[:, :-dim_condition], z[:, :]), dim=-1)
 
-        tf_loss = F.mse_loss(pr_non_pad_token, gt_non_pad_token, reduction='mean')
-        loss = tf_loss + diff_loss
-        self.log_dict({
-            'train_loss': loss,
-            'train_tf_loss': tf_loss,
-            'train_diff_loss': diff_loss,
-            'train_diff_100_loss': diff_100_loss,
-            'train_diff_1000_loss': diff_1000_loss,
-        })
+        # pr_non_pad_token = torch.cat((pr_non_pad_token_con[:, :-dim_condition], z[:, :]), dim=-1)
+
+        # tf_loss = F.mse_loss(pr_non_pad_token, gt_non_pad_token, reduction='mean')
+        # loss = tf_loss + diff_loss
+        # self.log_dict({
+        #     'val_loss': loss,
+        #     'val_tf_loss': tf_loss,
+        #     'train_diff_loss': diff_loss,
+        #     'train_diff_100_loss': diff_100_loss,
+        #     'train_diff_1000_loss': diff_1000_loss,
+        # })
 
         if batch_idx == 0:
             # batched_recon_latent = return_dict["reconstructed_plane_feature"]
@@ -190,4 +191,5 @@ class TransDiffusionCombineModel(TransArticulatedBaseModule):
             image = np.concatenate(screenshots, axis=1)
             self.logger.log_image(key="Image", images=[wandb.Image(image)])
 
-        return loss
+        # return loss
+        return None

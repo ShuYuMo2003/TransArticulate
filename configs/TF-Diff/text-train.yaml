@@ -8,8 +8,8 @@ default_root_dir: train_root_dir/Transformer_Diffusion
 num_epochs: 1000001
 
 dataset_n_dataloader:
-  n_workers: 12
-  batch_size: 16
+  n_workers: 20
+  batch_size: 128
 
   dataset_path: data/datasets/4_transformer_dataset
   description_for_each_file: 6
@@ -61,7 +61,7 @@ diffusion_model_paramerter:
     depth: 4
     ff_dropout: 0.3
     cond: true
-    cross_attn: true
+    cross_attn: false
     cond_dropout: true
     point_feature_dim: 768
     # point_feature_dim: 128
@@ -73,9 +73,9 @@ optimizer_paramerter:
   scheduler_warmup: 30
 
 evaluation:
-  sdf_path: train_root_dir/SDF/checkpoint/08-29-08AM-00-05/epoch=0329-loss=0.00668.ckpt
-  sdf_config_path: configs/SDF/train.yaml
+  sdf_model_path: null
   max_batch: 262144  # 2^18
   eval_mesh_output_path: train_root_dir/SDF/tempmesh
   resolution: 256
   count: 10
+  freq: 50

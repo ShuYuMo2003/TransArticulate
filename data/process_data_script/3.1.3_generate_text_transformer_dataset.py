@@ -98,6 +98,7 @@ def process(shape_info_path:Path, transformer_dataset_path:Path, encoded_text_pa
 
         new_parts_info.append({
                 'token': token,
+                'name': part_info['name'],
                 'dfn_fa': part_info['dfn_fa'],
                 'dfn': part_info['dfn'],
             })
@@ -118,11 +119,11 @@ def process(shape_info_path:Path, transformer_dataset_path:Path, encoded_text_pa
             root = part_info
 
         part_info['child'] = list(filter(lambda x: x['dfn_fa'] == part_info['dfn'], new_parts_info))
-        part_info['child'].sort(key=lambda x: x['dfn'])
+        part_info['child'].sort(key=lambda x: x['name'])
 
     assert root is not None
 
-    exist_node = [{'token': start_token, 'dfn': 0, 'dfn_fa' : 0, 'child': [root]}]
+    exist_node = [{'token': start_token, 'dfn': 0, 'dfn_fa' : 0, 'child': [root], 'name': 'root'}]
 
     datasets = []
 

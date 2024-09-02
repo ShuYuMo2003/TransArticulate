@@ -37,7 +37,6 @@ if __name__ == '__main__':
         )
         wandb_logger = WandbLogger()
 
-    model = TransDiffusionCombineModel(config)
 
     # Configure data module
     d_configs = config['dataset_n_dataloader']
@@ -50,7 +49,10 @@ if __name__ == '__main__':
             num_workers=d_configs['n_workers'], batch_size=d_configs['batch_size'],
             drop_last=True, shuffle=True, pin_memory=True, persistent_workers=True)
 
+    config['evaluation']['sdf_model_path'] = train_dataloader.dataset.get_onet_ckpt_path()
 
+    # Configure model
+    model = TransDiffusionCombineModel(config)
 
     # Configure save checkpoint callback
     checkpoint_callback = ModelCheckpoint(
@@ -67,7 +69,7 @@ if __name__ == '__main__':
     trainer = Trainer(devices=config['devices'], accelerator=config["accelerator"],
                       benchmark=True,
                       callbacks=[ModelSummary(max_depth=1), checkpoint_callback, TQDMProgressBar()],
-                      check_val_every_n_epoch=10,
+                      check_val_every_n_epoch=config['evaluation']['freq'],
                     #   val_check_interval=0.1,
                       default_root_dir=config['default_root_dir'],
                       max_epochs=config['num_epochs'], profiler="simple",

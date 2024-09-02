@@ -45,11 +45,9 @@ class TransDiffusionDataset(dataset.Dataset):
         return len(self.files_path)
 
     def __getitem__(self, index):
-        # print('index: ', index)
         current_enc_idx, file_path = self.files_path[index]
         data = json.loads(Path(file_path).read_text())
-        # print('index = ', index)
-        # print('file_path = ', file_path)
+
         enc_path = 'data/' + data[self.enc_data_fieldname][current_enc_idx]
         enc = np.load(enc_path, allow_pickle=True)
 

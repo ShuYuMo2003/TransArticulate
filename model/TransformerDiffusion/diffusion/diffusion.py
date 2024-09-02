@@ -165,11 +165,11 @@ class DiffusionNet(nn.Module):
             #print("data, cond shape: ", data.shape, cond.shape) # B, dim_in_out; B, N, 3
             #print("pass cond: ", pass_cond)
             if self.cond_dropout:
-                # classifier-free guidance: 20% unconditional
+                # classifier-free guidance: 30% unconditional
                 prob = torch.randint(low=0, high=10, size=(1,))
-                percentage = 8
+                percentage = 7
                 if prob < percentage or pass_cond==0:
-                    cond_feature = torch.zeros( (cond.shape[0], cond.shape[1], self.point_feature_dim), device=data.device )
+                    cond_feature = torch.zeros_like(cond, device=data.device)
                     #print("zeros shape: ", cond_feature.shape)
                 elif prob >= percentage or pass_cond==1:
                     cond_feature = cond
@@ -189,28 +189,24 @@ class DiffusionNet(nn.Module):
 
         model_inputs = [time_embed, data, learned_queries]
 
+        cond_feature = cond_feature.unsqueeze(1)
         if self.cond and not self.cross_attn:
             model_inputs.insert(0, cond_feature) # cond_feature defined in first loop above
 
         # token是铰接物体参数化的embedding (?)
-        tokens = torch.cat(model_inputs, dim = 1) # (b, 3/4, d); batch and d=512 same across the model_inputs
+        tokens = torch.cat(model_inputs, dim=1) # (b, 3/4, d); batch and d=512 same across the model_inputs
         #print("tokens shape: ", tokens.shape)
 
         if self.cross_attn:
             cond_feature = None if not self.cond else cond_feature
-            #print("tokens shape: ", tokens.shape, cond_feature.shape)
-            if self.cond and len(cond_feature.shape) != 3:
-                cond_feature = cond_feature.unsqueeze(1)
-            #     cond_feature = cond_feature.unsqueeze(1)
-            #     self.mlp = MLP(cond_feature.shape[-1], tokens.shape[-1])
-            #     cond_feature = self.mlp(cond_feature)
-            # assert tokens.shape[-1] == cond_feature.shape[-1]
             tokens = self.causal_transformer(tokens, context=cond_feature)
         else:
+            # import pdb; pdb.set_trace()
+            # Tokens: (Batch, Sequence, Dim=768)
             tokens = self.causal_transformer(tokens)
 
         # get learned query, which should predict the sdf layer embedding (per DDPM timestep)
-        pred = tokens[..., -1, :]
+        pred = tokens[:, -1, :]
 
         return pred
 

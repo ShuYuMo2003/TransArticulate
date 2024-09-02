@@ -33,7 +33,7 @@ class _DiffusionModel(nn.Module):
         timesteps, = betas.shape
         self.num_timesteps = int(timesteps)
 
-        self.pc_size = sample_pc_size
+        # self.pc_size = sample_pc_size
         self.perturb_pc = perturb_pc
         self.crop_percent = crop_percent
         assert self.perturb_pc in [None, "partial", "noisy"]
@@ -251,43 +251,43 @@ class _DiffusionModel(nn.Module):
         return loss, loss_100, loss_1000, model_out, cond
 
 
-    def generate_from_pc(self, pc, load_pc=False, batch=5, save_pc=False, return_pc=False, ddim=False, perturb_pc=True):
-        self.eval()
+    # def generate_from_pc(self, pc, load_pc=False, batch=5, save_pc=False, return_pc=False, ddim=False, perturb_pc=True):
+    #     self.eval()
 
-        with torch.no_grad():
-            if load_pc:
-                pc = sample_pc(pc, self.pc_size).cuda().unsqueeze(0)
+    #     with torch.no_grad():
+    #         if load_pc:
+    #             pc = sample_pc(pc, self.pc_size).cuda().unsqueeze(0)
 
-            if pc is None:
-                input_pc = None
-                save_pc = False
-                full_perturbed_pc = None
+    #         if pc is None:
+    #             input_pc = None
+    #             save_pc = False
+    #             full_perturbed_pc = None
 
-            else:
-                if perturb_pc:
-                    full_perturbed_pc = perturb_point_cloud(pc, self.perturb_pc)
-                    perturbed_pc = full_perturbed_pc[:, torch.randperm(full_perturbed_pc.shape[1])[:self.pc_size] ]
-                    input_pc = perturbed_pc.repeat(batch, 1, 1)
-                else:
-                    full_perturbed_pc = pc
-                    perturbed_pc = pc
-                    input_pc = pc.repeat(batch, 1, 1)
+    #         else:
+    #             if perturb_pc:
+    #                 full_perturbed_pc = perturb_point_cloud(pc, self.perturb_pc)
+    #                 perturbed_pc = full_perturbed_pc[:, torch.randperm(full_perturbed_pc.shape[1])[:self.pc_size] ]
+    #                 input_pc = perturbed_pc.repeat(batch, 1, 1)
+    #             else:
+    #                 full_perturbed_pc = pc
+    #                 perturbed_pc = pc
+    #                 input_pc = pc.repeat(batch, 1, 1)
 
-            #print("shapes: ", pc.shape, self.pc_size, self.perturb_pc, perturbed_pc.shape, full_perturbed_pc.shape)
-            #print("pc path: ", pc_path)
+    #         #print("shapes: ", pc.shape, self.pc_size, self.perturb_pc, perturbed_pc.shape, full_perturbed_pc.shape)
+    #         #print("pc path: ", pc_path)
 
-            #print("pc shape: ", perturbed_pc.shape, input_pc.shape)
-            if save_pc: # save perturbed pc ply file for visualization
-                pcd = o3d.geometry.PointCloud()
-                pcd.points = o3d.utility.Vector3dVector(perturbed_pc.cpu().numpy().squeeze())
-                o3d.io.write_point_cloud("{}/input_pc.ply".format(save_pc), pcd)
+    #         #print("pc shape: ", perturbed_pc.shape, input_pc.shape)
+    #         if save_pc: # save perturbed pc ply file for visualization
+    #             pcd = o3d.geometry.PointCloud()
+    #             pcd.points = o3d.utility.Vector3dVector(perturbed_pc.cpu().numpy().squeeze())
+    #             o3d.io.write_point_cloud("{}/input_pc.ply".format(save_pc), pcd)
 
-            sample_fn = self.ddim_sample if ddim else self.sample
-            samp,_ = sample_fn(dim=self.model.dim_in_out, batch_size=batch, traj=False, cond=input_pc)
+    #         sample_fn = self.ddim_sample if ddim else self.sample
+    #         samp,_ = sample_fn(dim=self.model.dim_in_out, batch_size=batch, traj=False, cond=input_pc)
 
-        if return_pc:
-            return samp, perturbed_pc
-        return samp
+    #     if return_pc:
+    #         return samp, perturbed_pc
+    #     return samp
 
     def generate_unconditional(self, num_samples):
         self.eval()

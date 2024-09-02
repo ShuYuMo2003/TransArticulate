@@ -78,6 +78,7 @@ id_to_dfn = {}
 def calcuate_dfn(parts, cur_id):
     global dfn
     child = list(filter(lambda x: x['raw_parent'] == cur_id, parts))
+    child.sort(key=lambda x: x['name'])
     dfn += 1
     id_to_dfn[cur_id] = dfn
     for c in child:
@@ -110,6 +111,7 @@ def process(shape_path:Path, output_info_path:Path, output_mesh_path:Path, neede
 
         new_part['raw_id'] = pid
         new_part['raw_parent'] = part['parent']
+        new_part['name'] = part['name'].replace('_', ' ')
 
         # Get Meshs in `obj`
         partids_in_result = [obj['id'] for obj in part["parts"]]
