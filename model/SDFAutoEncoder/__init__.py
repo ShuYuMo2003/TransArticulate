@@ -22,6 +22,8 @@ class SDFAutoEncoder(TransArticulatedBaseModule):
         super().__init__(configs)
         self.configs = configs
 
+        self.n_validation = 0
+
         self.e_config = configs["evaluation"]
         self.e_config['eval_mesh_output_path'] = Path(self.e_config['eval_mesh_output_path'] )
         self.e_config['eval_mesh_output_path'].mkdir(parents=True, exist_ok=True)
@@ -102,7 +104,10 @@ class SDFAutoEncoder(TransArticulatedBaseModule):
         }
         self.log_dict(log_dict, prog_bar=False, enable_graph=False)
 
-        if batch_idx == 0 and self.global_step % self.e_config['freq'] == 0:
+        if batch_idx == 0:
+            self.n_validation += 1
+
+        if batch_idx == 0 and self.n_validation % self.e_config['vis_epoch_freq'] == 0:
             batched_recon_latent = return_dict["reconstructed_plane_feature"]
             evaluation_count = min(self.e_config['count'], batched_recon_latent.shape[0])
             screenshots = [np.random.randn(256, 256, 3) * 255 for _ in range(evaluation_count)]
@@ -127,6 +132,6 @@ class SDFAutoEncoder(TransArticulatedBaseModule):
                 screenshots[batch] = screenshot
             image = np.concatenate(screenshots, axis=1)
 
-            self.logger.log_image(key="Image", images=[wandb.Image(image)])
+            self.w_logger.log_image(key="Image", images=[wandb.Image(image)])
 
         return return_dict["loss"]

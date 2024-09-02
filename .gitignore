@@ -3,7 +3,9 @@ datasets/
 log/
 lightning_logs/
 training_root_dir/
+train_root_dir/
 wandb/
+cache/
 
 # Part B: gitignore for python projects in template.
 # Byte-compiled / optimized / DLL files

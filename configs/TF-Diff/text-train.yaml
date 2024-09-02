@@ -1,0 +1,81 @@
+seed: 123456790
+wandb:
+  use: true
+  project: TF_Diffusion
+  entity: shuyumo1
+
+default_root_dir: train_root_dir/Transformer_Diffusion
+num_epochs: 1000001
+
+dataset_n_dataloader:
+  n_workers: 12
+  batch_size: 16
+
+  dataset_path: data/datasets/4_transformer_dataset
+  description_for_each_file: 6
+  cut_off: -1
+  enc_data_fieldname: description
+
+checkpoint:
+  path: train_root_dir/Transformer_Diffusion/checkpoint
+  freq: 1000
+
+part_structure:
+  bounding_box: 6
+  joint_data_origin: 3
+  joint_data_direction: 3
+  limit: 4
+  # condition: 128
+  condition: 768
+  latentcode: 768
+
+transformer_model_paramerter:
+  tokenizer_hidden_dim: 2048
+  tokenizer_dropout: 0.2
+
+  n_head: 8
+  n_layer: 8
+  d_model: 1024
+  decoder_dropout: 0.1
+
+  position_embedding_dropout: 0.1
+
+  ffn_hidden_dim: 2048
+  ffn_dropout: 0.2
+
+  encoder_kv_dim: 1024 # decided by pretrained encoder model.
+  post_encoder_deepth: 4
+
+
+diffusion_model_paramerter:
+  diffusion_config:
+    timesteps: 1000
+    objective: pred_x0
+    loss_type: l2
+    perturb_pc: partial
+    crop_percent: 0.5
+    sample_pc_size: 128
+
+  diffusion_model_config:
+    dim: 768
+    depth: 4
+    ff_dropout: 0.3
+    cond: true
+    cross_attn: true
+    cond_dropout: true
+    point_feature_dim: 768
+    # point_feature_dim: 128
+
+optimizer_paramerter:
+  diff_lr: 0.1
+  tf_lr: 1
+  scheduler_factor: 0.0025
+  scheduler_warmup: 30
+
+evaluation:
+  sdf_path: train_root_dir/SDF/checkpoint/08-29-08AM-00-05/epoch=0329-loss=0.00668.ckpt
+  sdf_config_path: configs/SDF/train.yaml
+  max_batch: 262144  # 2^18
+  eval_mesh_output_path: train_root_dir/SDF/tempmesh
+  resolution: 256
+  count: 10
