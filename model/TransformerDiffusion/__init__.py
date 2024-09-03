@@ -30,6 +30,8 @@ class TransDiffusionCombineModel(TransArticulatedBaseModule):
     def __init__(self, config):
         super().__init__(config)
 
+        self.automatic_optimization = False
+
         self._device = config['device']
         self.config = config
         self.op_config = config['optimizer_paramerter']
@@ -65,25 +67,21 @@ class TransDiffusionCombineModel(TransArticulatedBaseModule):
 
     def configure_optimizers(self):
         para_list = [
-            { 'params': self.diffusion.parameters(), 'lr':self.op_config['diff_lr'] },
-            { 'params': self.transformer.parameters(), 'lr':self.op_config['tf_lr'] }
+            { 'params': self.transformer.parameters(), 'lr':self.op_config['tf_lr'] },
+            { 'params': self.diffusion.parameters(), 'lr':self.op_config['diff_lr'] }
         ]
-        self._optimizer = Adam(para_list)
-        self._lr_scheduler = LambdaLR(self._optimizer,
+        optimizer = Adam(para_list, betas=self.op_config['betas'], eps=float(self.op_config['eps']))
+        lr_scheduler = LambdaLR(optimizer,
                                 lr_lambda=lambda step:
                                 self.rate(step, self.tf_config['d_model'],
                                 self.op_config['scheduler_factor'],
                                 self.op_config['scheduler_warmup']))
-        return {
-                "optimizer": self._optimizer,
-                "lr_scheduler": {
-                    "scheduler": self._lr_scheduler,
-                    "interval": "epoch",
-                    "frequency": 1,
-                }
-            }
+        return [optimizer], [lr_scheduler]
 
     def training_step(self, batch, batch_idx):
+        optimizer = self.optimizers()
+        optimizer.zero_grad()
+
         self.train()
         input, output, padding_mask,   \
             end_token_mask, enc_data, enc_data_raw = batch
@@ -93,6 +91,8 @@ class TransDiffusionCombineModel(TransArticulatedBaseModule):
         '''
         dim_condition = self.part_structure['condition']
         dim_latent = self.part_structure['latentcode']
+
+        # import pdb; pdb.set_trace();
 
         pr_token_con = self.transformer(input, padding_mask, enc_data)
 
@@ -122,13 +122,18 @@ class TransDiffusionCombineModel(TransArticulatedBaseModule):
             'train_diff_loss': diff_loss,
             'train_diff_100_loss': diff_100_loss,
             'train_diff_1000_loss': diff_1000_loss,
-            'transformer_lr': self._optimizer.param_groups[1]['lr'],
-            'diffusion_lr': self._optimizer.param_groups[0]['lr'],
+            'transformer_lr': optimizer.param_groups[0]['lr'],
+            'diffusion_lr': optimizer.param_groups[1]['lr'],
         })
 
-        return loss
+        self.manual_backward(loss)
+        optimizer.step()
 
-    # 没有验证集，这里仅作为可视化部分
+        if self.trainer.is_last_batch:
+            scheduler = self.lr_schedulers()
+            scheduler.step()
+
+
     @torch.no_grad()
     def validation_step(self, batch, batch_idx):
         self.eval()

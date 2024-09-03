@@ -34,7 +34,7 @@ class TransformerDecoder(nn.Module):
                                              d_model=self.d_model,
                                              drop_out=self.m_config['tokenizer_dropout'])
 
-        self.postencoder    = PostEncoder(dim=self.m_config['encoder_kv_dim'],
+        self.postencoder    = PostEncoder(dim=self.m_config['encoder_kv_dim'], d_model=self.d_model,
                                           deepth=self.m_config['post_encoder_deepth'])
 
         self.layers         = nn.ModuleList([

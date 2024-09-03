@@ -2,13 +2,13 @@ from torch import nn
 
 
 class PostEncoder(nn.Module):
-    def __init__(self, dim: int, deepth: int):
+    def __init__(self, dim: int, d_model: int, deepth: int):
         super().__init__()
         self.fc0 = nn.Linear(dim, dim * 2)
         self.block = nn.ModuleList([
             ResnetBlockFC(dim * 2) for _ in range(deepth)
         ])
-        self.fc1 = nn.Linear(dim * 2, dim)
+        self.fc1 = nn.Linear(dim * 2, d_model)
 
     def forward(self, x):
         x = self.fc0(x)

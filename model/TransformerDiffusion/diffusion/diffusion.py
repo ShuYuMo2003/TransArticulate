@@ -8,6 +8,7 @@ from rotary_embedding_torch import RotaryEmbedding
 
 from .utils.model_utils import *
 from .utils.helpers import *
+from utils.logging import Log
 
 
 class CausalTransformer(nn.Module):
@@ -125,6 +126,7 @@ class DiffusionNet(nn.Module):
         dim_in_out=None,
         num_timesteps = None,
         num_time_embeds = 1,
+        expand_ratio: int = 4,
         cond = None,
         **kwargs
     ):
@@ -149,6 +151,10 @@ class DiffusionNet(nn.Module):
         self.learned_query = nn.Parameter(torch.randn(self.dim_in_out))
         self.causal_transformer = CausalTransformer(dim = dim, dim_in_out=self.dim_in_out, **kwargs)
 
+        if self.cond and self.cross_attn:
+            self.expand_condition = nn.Linear(self.point_feature_dim, self.point_feature_dim * expand_ratio)
+        self.expand_ratio = expand_ratio
+
 
     def forward(
         self,
@@ -165,9 +171,9 @@ class DiffusionNet(nn.Module):
             #print("data, cond shape: ", data.shape, cond.shape) # B, dim_in_out; B, N, 3
             #print("pass cond: ", pass_cond)
             if self.cond_dropout:
-                # classifier-free guidance: 30% unconditional
+                # classifier-free guidance: 20% unconditional
                 prob = torch.randint(low=0, high=10, size=(1,))
-                percentage = 7
+                percentage = 8
                 if prob < percentage or pass_cond==0:
                     cond_feature = torch.zeros_like(cond, device=data.device)
                     #print("zeros shape: ", cond_feature.shape)
@@ -189,8 +195,9 @@ class DiffusionNet(nn.Module):
 
         model_inputs = [time_embed, data, learned_queries]
 
-        cond_feature = cond_feature.unsqueeze(1)
+
         if self.cond and not self.cross_attn:
+            cond_feature = cond_feature.unsqueeze(1)
             model_inputs.insert(0, cond_feature) # cond_feature defined in first loop above
 
         # token是铰接物体参数化的embedding (?)
@@ -198,8 +205,16 @@ class DiffusionNet(nn.Module):
         #print("tokens shape: ", tokens.shape)
 
         if self.cross_attn:
-            cond_feature = None if not self.cond else cond_feature
-            tokens = self.causal_transformer(tokens, context=cond_feature)
+            if self.cond:
+                cond_feature = self.expand_condition(cond_feature)
+                n_batch = tokens.shape[0]
+                _cond_feature = cond_feature.view(n_batch, self.expand_ratio, self.point_feature_dim)
+                # Log.info("Run To branch: %s", "Cross Attention + Condition")
+                # import pdb; pdb.set_trace()
+                # Tokens: (Batch, Sequence=4, Dim=768)
+            else:
+                _cond_feature = None
+            tokens = self.causal_transformer(tokens, context=_cond_feature)
         else:
             # import pdb; pdb.set_trace()
             # Tokens: (Batch, Sequence, Dim=768)
