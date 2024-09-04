@@ -1,0 +1,13 @@
+checkpoint_path: /root/autodl-tmp/TransArticulate/train_root_dir/Transformer_Diffusion/checkpoint/09-03-08PM-49-53/epoch=0712-loss=0.00000.ckpt
+
+eval_output_path: log/TF-Diff/
+
+t5_max_sentence_length: 128
+
+equal_part_threshold: 0.05
+
+gensdf_latentcode_evaluator:
+  sdf_model_path: null
+  max_batch: 16384  # 2^18
+  eval_mesh_output_path: train_root_dir/SDF/tempmesh
+  resolution: 256

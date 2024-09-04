@@ -90,7 +90,7 @@ class CausalTransformer(nn.Module):
         attn_bias = self.rel_pos_bias(n, n + 1, device = device)
 
         if self.cross_attn:
-            #assert context is not None
+            assert context is not None
             for idx, (self_attn, cross_attn, ff) in enumerate(self.layers):
                 #print("x1 shape: ", x.shape)
                 if (idx==0 or idx==len(self.layers)-1) and not self.use_same_dims:
@@ -152,7 +152,12 @@ class DiffusionNet(nn.Module):
         self.causal_transformer = CausalTransformer(dim = dim, dim_in_out=self.dim_in_out, **kwargs)
 
         if self.cond and self.cross_attn:
-            self.expand_condition = nn.Linear(self.point_feature_dim, self.point_feature_dim * expand_ratio)
+            self.condition_post_mlp = nn.Sequential(
+                nn.Linear(self.point_feature_dim, self.point_feature_dim * expand_ratio),
+                nn.Dropout(kwargs.get('condition_dropout')),
+                nn.LeakyReLU(0.01),
+                nn.Linear(self.point_feature_dim * expand_ratio, self.point_feature_dim * expand_ratio)
+            )
         self.expand_ratio = expand_ratio
 
 
@@ -206,7 +211,7 @@ class DiffusionNet(nn.Module):
 
         if self.cross_attn:
             if self.cond:
-                cond_feature = self.expand_condition(cond_feature)
+                cond_feature = self.condition_post_mlp(cond_feature)
                 n_batch = tokens.shape[0]
                 _cond_feature = cond_feature.view(n_batch, self.expand_ratio, self.point_feature_dim)
                 # Log.info("Run To branch: %s", "Cross Attention + Condition")

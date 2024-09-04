@@ -229,8 +229,6 @@ class _DiffusionModel(nn.Module):
 
         return ModelPrediction(pred_noise, x_start)
 
-
-
     # a wrapper function that only takes x_start (clean modulation vector) and condition
     # does everything including sampling timestep and returns loss, loss_100, loss_1000, prediction
     def diffusion_model_from_latent(self, x_start, cond=None):
@@ -239,9 +237,6 @@ class _DiffusionModel(nn.Module):
 
         # STEP 1: sample timestep
         t = torch.randint(0, self.num_timesteps, (x_start.shape[0],), device=x_start.device).long()
-
-        # STEP 2: perturb condition
-        # pc = perturb_point_cloud(cond, self.perturb_pc, self.pc_size, self.crop_percent) if cond is not None else None
 
         # STEP 3: pass to forward function
         loss, x, target, model_out, unreduced_loss = self(x_start, t, cond=cond, ret_pred_x=True)
@@ -288,6 +283,13 @@ class _DiffusionModel(nn.Module):
     #     if return_pc:
     #         return samp, perturbed_pc
     #     return samp
+
+    def generate_conditional(self, cond):
+        self.eval()
+        with torch.no_grad():
+            samp,_ = self.sample(dim=self.model.dim_in_out, batch_size=cond.shape[0], traj=False, cond=cond)
+
+        return samp
 
     def generate_unconditional(self, num_samples):
         self.eval()

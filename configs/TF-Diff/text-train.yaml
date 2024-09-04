@@ -1,6 +1,6 @@
 seed: 123456790
 wandb:
-  use: true
+  use: false
   project: TF_Diffusion
   entity: shuyumo1
 
@@ -39,12 +39,14 @@ transformer_model_paramerter:
   decoder_dropout: 0.1
 
   position_embedding_dropout: 0.1
+  position_embedding_dim_single_emb: 256
 
   ffn_hidden_dim: 4096
   ffn_dropout: 0.2
 
   encoder_kv_dim: 1024 # decided by pretrained encoder model.
   post_encoder_deepth: 4
+  post_encoder_dropout: 0.3
 
 
 diffusion_model_paramerter:
@@ -64,20 +66,21 @@ diffusion_model_paramerter:
     cross_attn: true
     cond_dropout: true
     point_feature_dim: 768
+    condition_dropout: 0.3
     # point_feature_dim: 128
 
 optimizer_paramerter:
-  tf_lr: 20
+  tf_lr: 0.6
   scheduler_factor: 0.0015
   scheduler_warmup: 30
   betas: [0.9, 0.98]
   eps: 1.0e-9
 
-  diff_lr: 2.5
+  diff_lr: 4
 
 evaluation:
   sdf_model_path: null
-  max_batch: 262144  # 2^18
+  max_batch: 16384  # 2^18
   eval_mesh_output_path: train_root_dir/SDF/tempmesh
   resolution: 256
   count: 10

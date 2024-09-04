@@ -2,11 +2,11 @@ from torch import nn
 
 
 class PostEncoder(nn.Module):
-    def __init__(self, dim: int, d_model: int, deepth: int):
+    def __init__(self, dim: int, d_model: int, deepth: int, dropout: float):
         super().__init__()
         self.fc0 = nn.Linear(dim, dim * 2)
         self.block = nn.ModuleList([
-            ResnetBlockFC(dim * 2) for _ in range(deepth)
+            ResnetBlockFC(dim * 2, dropout) for _ in range(deepth)
         ])
         self.fc1 = nn.Linear(dim * 2, d_model)
 
@@ -28,7 +28,7 @@ class ResnetBlockFC(nn.Module):
         size_h (int): hidden dimension
     '''
 
-    def __init__(self, size_in, size_out=None, size_h=None):
+    def __init__(self, size_in, dropout, size_out=None, size_h=None):
         super().__init__()
         # Attributes
         if size_out is None:
@@ -45,7 +45,7 @@ class ResnetBlockFC(nn.Module):
         self.fc_1 = nn.Linear(size_h, size_out)
         self.actvn = nn.LeakyReLU(0.2)
 
-        self.droupout = nn.Dropout(0.2)
+        self.droupout = nn.Dropout(dropout)
 
         if size_in == size_out:
             self.shortcut = None

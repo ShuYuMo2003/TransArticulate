@@ -102,26 +102,21 @@ class TransDiffusionCombineModel(TransArticulatedBaseModule):
         pr_condition = pr_non_pad_token_con[:, -dim_condition:]
         gt_latent = gt_non_pad_token[:, -dim_latent:]
 
-        # diff_loss, diff_100_loss, diff_1000_loss, pred_latent, perturbed_pc =   \
-        #     self.diffusion.diffusion_model_from_latent(gt_latent.view(-1, gt_latent.size(-1)),
-        #                                                cond=pr_condition.view(-1, pr_condition.size(-1)))
-        diff_loss, diff_100_loss, diff_1000_loss, pred_latent, perturbed_pc =   \
+
+        tf_loss = F.mse_loss(pr_non_pad_token_con[:, :-dim_condition], gt_non_pad_token[:, :-dim_latent], reduction='mean')
+
+        diff_loss_1, diff_100_loss_1, diff_1000_loss_1, pred_latent_1, perturbed_pc_1 =   \
             self.diffusion.diffusion_model_from_latent(gt_latent, cond=pr_condition)
+        # diff_loss = F.mse_loss(gt_latent, pr_condition, reduction='mean')
 
-        pred_latent = pred_latent.view_as(gt_latent)
-
-        pr_non_pad_token = torch.cat((pr_non_pad_token_con[:, :-dim_condition], pred_latent[:, :]), dim=-1)
-
-        tf_loss = F.mse_loss(pr_non_pad_token, gt_non_pad_token, reduction='mean')
-
-        loss = tf_loss + diff_loss
+        loss = tf_loss + diff_loss_1
 
         self.log_dict({
             'train_loss': loss,
             'train_tf_loss': tf_loss,
-            'train_diff_loss': diff_loss,
-            'train_diff_100_loss': diff_100_loss,
-            'train_diff_1000_loss': diff_1000_loss,
+            'train_diff_loss': diff_loss_1,
+            'train_diff_100_loss': diff_100_loss_1,
+            'train_diff_1000_loss': diff_1000_loss_1,
             'transformer_lr': optimizer.param_groups[0]['lr'],
             'diffusion_lr': optimizer.param_groups[1]['lr'],
         })
@@ -137,7 +132,7 @@ class TransDiffusionCombineModel(TransArticulatedBaseModule):
     @torch.no_grad()
     def validation_step(self, batch, batch_idx):
         self.eval()
-        input, output, padding_mask, _, enc_data, _ = batch
+        input, output, padding_mask, end_token_mask, enc_data, _ = batch
         '''
             padding_mask:    1 -> not padding token, 0 -> padding token
             end_token_mask:  1 -> not end token,     0 -> end token
@@ -149,37 +144,29 @@ class TransDiffusionCombineModel(TransArticulatedBaseModule):
 
         pr_non_pad_token_con = pr_token_con[(padding_mask > 0.5)]
         gt_non_pad_token = output[(padding_mask > 0.5)]
+        end_token_non_pad_mask = end_token_mask[(padding_mask > 0.5)]
 
         pr_condition = pr_non_pad_token_con[:, -dim_condition:]
         gt_latent = gt_non_pad_token[:, -dim_latent:]
 
+        # z = pr_condition
         diff_loss, diff_100_loss, diff_1000_loss, z, _ =   \
             self.diffusion.diffusion_model_from_latent(gt_latent, cond=pr_condition)
 
         z = z.view_as(gt_latent)
-
-        # pr_non_pad_token = torch.cat((pr_non_pad_token_con[:, :-dim_condition], z[:, :]), dim=-1)
-
-        # tf_loss = F.mse_loss(pr_non_pad_token, gt_non_pad_token, reduction='mean')
-        # loss = tf_loss + diff_loss
-        # self.log_dict({
-        #     'val_loss': loss,
-        #     'val_tf_loss': tf_loss,
-        #     'train_diff_loss': diff_loss,
-        #     'train_diff_100_loss': diff_100_loss,
-        #     'train_diff_1000_loss': diff_1000_loss,
-        # })
+        z = z[end_token_non_pad_mask]
+        z = z.view(-1, z.size(-1))
 
         if batch_idx == 0:
             # batched_recon_latent = return_dict["reconstructed_plane_feature"]
             batched_recon_latent = self.sdf.vae_model.decode(z) # reconstruced triplane features
-            evaluation_count = min(self.e_config['count'], batched_recon_latent.shape[0])
+            evaluation_count = min(self.e_config['count'], batched_recon_latent.shape[0], z.shape[0])
             screenshots = [np.random.randn(256, 256, 3) * 255 for _ in range(evaluation_count)]
             if self.e_config['count'] > batched_recon_latent.shape[0]:
                 Log.warning('`evaluation.count` is greater than batch size. Setting to batch size')
             for batch in tqdm(range(evaluation_count), desc=f'Generating Mesh for Epoch = {batch_idx}'):
                 recon_latent = batched_recon_latent[[batch]] # ([1, D*3, resolution, resolution])
-                output_mesh = (self.e_config['eval_mesh_output_path'] / f'mesh_{batch_idx}_{batch}.ply').as_posix()
+                output_mesh = (self.e_config['eval_mesh_output_path'] / f'mesh_{self.trainer.current_epoch}_{batch}.ply').as_posix()
                 try:
                     MeshUtils.create_mesh(self.sdf, recon_latent,
                                     output_mesh, N=self.e_config['resolution'],
@@ -195,6 +182,3 @@ class TransDiffusionCombineModel(TransArticulatedBaseModule):
                 screenshots[batch] = screenshot
             image = np.concatenate(screenshots, axis=1)
             self.logger.log_image(key="Image", images=[wandb.Image(image)])
-
-        # return loss
-        return None

@@ -5,6 +5,7 @@ from rich import print
 from .layers.decoder_layer import DecoderLayer
 from .layers.post_encoder import PostEncoder
 from .layers.token import MLPTokenizer, MLPUnTokenizer
+from .layers.position import PositionGRUEmbedding
 
 class TransformerDecoder(nn.Module):
     def __init__(self, config):
@@ -24,6 +25,10 @@ class TransformerDecoder(nn.Module):
             [v for k, v in self.part_structure.items() if k != 'latentcode']
         )
 
+        self.position_embedding = PositionGRUEmbedding(d_model=self.d_model,
+                                                       dim_single_emb=self.m_config['position_embedding_dim_single_emb'],
+                                                       dropout=self.m_config['position_embedding_dropout'],)
+
         self.tokenizer      = MLPTokenizer(d_token=d_token_latencode,
                                            d_hidden=self.m_config['tokenizer_hidden_dim'],
                                            d_model=self.d_model,
@@ -35,6 +40,7 @@ class TransformerDecoder(nn.Module):
                                              drop_out=self.m_config['tokenizer_dropout'])
 
         self.postencoder    = PostEncoder(dim=self.m_config['encoder_kv_dim'], d_model=self.d_model,
+                                          dropout=self.m_config['post_encoder_dropout'],
                                           deepth=self.m_config['post_encoder_deepth'])
 
         self.layers         = nn.ModuleList([
@@ -44,6 +50,7 @@ class TransformerDecoder(nn.Module):
 
 
     def generate_mask(self, n_part):
+
         mask = torch.ones(n_part, n_part, device=self.device, dtype=torch.int16)
         # mask = torch.tril(mask) # no need mask
         return mask
@@ -51,11 +58,13 @@ class TransformerDecoder(nn.Module):
     def forward(self, input, padding_mask, enc_data):
         # ('token'/'dfn'/'dfn_fa') * batch * part_idx * attribute_dim
         enc_data = self.postencoder(enc_data)
-        tokens = input['token']
 
-        batch, n_part, d_model = tokens.size()
+        batch, n_part, d_model = input['token'].size()
 
-        tokens = self.tokenizer(tokens)
+        input['token'] = self.tokenizer(input['token'])
+
+        tokens = self.position_embedding(input)
+
         attn_mask = self.generate_mask(n_part)
 
         for idx, layer in enumerate(self.layers):
