@@ -1,6 +1,6 @@
 seed: 123456790
 wandb:
-  use: false
+  use: true
   project: TF_Diffusion
   entity: shuyumo1
 
@@ -18,7 +18,7 @@ dataset_n_dataloader:
 
 checkpoint:
   path: train_root_dir/Transformer_Diffusion/checkpoint
-  freq: 5000
+  freq: 2000
 
 part_structure:
   bounding_box: 6
@@ -26,27 +26,34 @@ part_structure:
   joint_data_direction: 3
   limit: 4
   # condition: 128
-  condition: 768
+  condition: 64
   latentcode: 768
 
 transformer_model_paramerter:
-  tokenizer_hidden_dim: 4096
-  tokenizer_dropout: 0.2
+  tokenizer_hidden_dim: 2048
+  tokenizer_dropout: 0.1
 
   n_head: 8
   n_layer: 8
-  d_model: 2048
+  d_model: 512
   decoder_dropout: 0.1
 
   position_embedding_dropout: 0.1
-  position_embedding_dim_single_emb: 256
+  position_embedding_dim_single_emb: 64
 
-  ffn_hidden_dim: 4096
-  ffn_dropout: 0.2
+  ffn_hidden_dim: 2048
+  ffn_dropout: 0.1
+
+  # channel, weight, height
+  vq_expand_dim: [32, 4, 4]
+  n_embed: 512
+  vq_beta: 0.25
+  vq_loss_weight: 0.1
+  before_vq_net_deepth: 2
 
   encoder_kv_dim: 1024 # decided by pretrained encoder model.
   post_encoder_deepth: 4
-  post_encoder_dropout: 0.3
+  post_encoder_dropout: 0.2
 
 
 diffusion_model_paramerter:
@@ -65,18 +72,18 @@ diffusion_model_paramerter:
     cond: true
     cross_attn: true
     cond_dropout: true
+    dim_condition: 64
     point_feature_dim: 768
-    condition_dropout: 0.3
-    # point_feature_dim: 128
+    condition_dropout: 0.2
 
 optimizer_paramerter:
-  tf_lr: 0.6
+  tf_lr: 1
   scheduler_factor: 0.0015
   scheduler_warmup: 30
   betas: [0.9, 0.98]
   eps: 1.0e-9
 
-  diff_lr: 4
+  diff_lr: 3
 
 evaluation:
   sdf_model_path: null

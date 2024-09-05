@@ -17,14 +17,18 @@ from model.SDFAutoEncoder import SDFAutoEncoder
 
 from utils import untokenize_part_info, generate_gif_toy
 import utils.mesh as MeshUtils
+from utils.logging import Log
+from utils.z_to_msh import GenSDFLatentCodeEvaluator
 
 class Evaluater():
     def __init__(self, eval_config):
         self.eval_config = eval_config
         self.device = eval_config['device']
 
+        Log.info("Loading model %s", TransDiffusionCombineModel)
         self.model = TransDiffusionCombineModel.load_from_checkpoint(eval_config['checkpoint_path'])
         self.model.eval()
+        self.model.diffusion.model.cond_dropout = False
         self.m_config = self.model.config
 
         d_configs = self.m_config['dataset_n_dataloader']
@@ -40,6 +44,7 @@ class Evaluater():
         self.start_token = copy.deepcopy(self.dataset.start_token).to(self.device)
         self.end_token = copy.deepcopy(self.dataset.end_token).to(self.device)
 
+        Log.info("Loading model %s", T5EncoderModel)
         self.tokenizer = AutoTokenizer.from_pretrained('google-t5/t5-large', cache_dir='cache/t5_cache')
         self.text_encoder = T5EncoderModel.from_pretrained('google-t5/t5-large', cache_dir='cache/t5_cache').to(self.device)
         #TODO: check need to do self.text_encoder.eval() or not
@@ -50,10 +55,15 @@ class Evaluater():
 
         # self.latentcode_evaluator = LatentCodeEvaluator(Path(self.dataset.get_onet_ckpt_path()), 100000, 16, self.device)
 
-        e_config = self.eval_config['gensdf_latentcode_evaluator']
-        self.e_config['sdf_model_path'] = self.dataset.get_onet_ckpt_path()
-        self.sdf = SDFAutoEncoder.load_from_checkpoint(self.e_config['sdf_model_path'])
+        Log.info("Loading model %s", SDFAutoEncoder)
+        self.gensdf_config = self.eval_config['gensdf_latentcode_evaluator']
+        self.gensdf_config['gensdf_model_path'] = self.dataset.get_onet_ckpt_path()
+        self.sdf = SDFAutoEncoder.load_from_checkpoint(self.gensdf_config['gensdf_model_path'])
         self.sdf.eval()
+        self.latentcode_evaluator = GenSDFLatentCodeEvaluator(self.sdf, eval_mesh_output_path=self.eval_output_path,
+                                                             resolution=self.gensdf_config['resolution'],
+                                                             max_batch=self.gensdf_config['max_batch'],
+                                                             device=self.device)
 
     def encode_text(self, text):
 
@@ -69,7 +79,9 @@ class Evaluater():
         return torch.ones(1, len).to(self.device)
 
     def is_end_token(self, token):
-        difference = torch.nn.functional.mse_loss(token, self.end_token)
+        length = token.size(0)
+        difference = torch.nn.functional.mse_loss(token[:length], self.end_token[:length])
+        print('    - Difference with end token:', difference.item())
         return difference < self.equal_part_threshold
 
     def inference(self, text, output_round):
@@ -88,7 +100,7 @@ class Evaluater():
             current_length = exist_node['token'].size(0)
             print('   - Generate nodes round:', round, ', part count:', exist_node['token'].size(0))
             with torch.no_grad():
-                vq_loss, output = self.model.transformer({
+                output, vq_loss = self.model.transformer({
                                         'fa': exist_node['fa'].unsqueeze(0),        # batched.
                                         'token': exist_node['token'].unsqueeze(0),
                                     },
@@ -99,10 +111,11 @@ class Evaluater():
 
             all_end = True
             condition = output[:, -dim_condition:]
-            latent = self.model.diffusion.generate_conditional(condition.shape[0], condition)
+            print('   - Generate latent code with condition:', str(condition.shape))
+            latent = self.model.diffusion.generate_conditional(condition)
             output = torch.cat((output[:, :-dim_condition], latent), dim=-1)
             for idx, child_node in enumerate(output):
-                if self.is_end_token(child_node):
+                if self.is_end_token(child_node[:-dim_condition]):
                     continue
                 exist_node['fa'] = torch.cat((exist_node['fa'], torch.tensor([idx]).to(self.device)), dim=0)
                 exist_node['token'] = torch.cat((exist_node['token'], child_node.unsqueeze(0)), dim=0)

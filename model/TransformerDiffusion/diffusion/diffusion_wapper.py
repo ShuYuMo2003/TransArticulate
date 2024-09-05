@@ -135,7 +135,7 @@ class _DiffusionModel(nn.Module):
 
         x_T = default(noise, torch.randn(batch, dim, device = device))
 
-        for t in reversed(range(0, self.num_timesteps)):
+        for t in tqdm(reversed(range(0, self.num_timesteps)), desc='sampling loop time step', total=self.num_timesteps):
 
             time_cond = torch.full((batch,), t, device = device, dtype = torch.long)
 

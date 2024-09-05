@@ -94,7 +94,7 @@ class TransDiffusionCombineModel(TransArticulatedBaseModule):
 
         # import pdb; pdb.set_trace();
 
-        pr_token_con = self.transformer(input, padding_mask, enc_data)
+        pr_token_con, vq_loss = self.transformer(input, padding_mask, enc_data)
 
         pr_non_pad_token_con = pr_token_con[(padding_mask > 0.5)]
         gt_non_pad_token = output[(padding_mask > 0.5)]
@@ -102,18 +102,18 @@ class TransDiffusionCombineModel(TransArticulatedBaseModule):
         pr_condition = pr_non_pad_token_con[:, -dim_condition:]
         gt_latent = gt_non_pad_token[:, -dim_latent:]
 
-
         tf_loss = F.mse_loss(pr_non_pad_token_con[:, :-dim_condition], gt_non_pad_token[:, :-dim_latent], reduction='mean')
 
         diff_loss_1, diff_100_loss_1, diff_1000_loss_1, pred_latent_1, perturbed_pc_1 =   \
             self.diffusion.diffusion_model_from_latent(gt_latent, cond=pr_condition)
         # diff_loss = F.mse_loss(gt_latent, pr_condition, reduction='mean')
 
-        loss = tf_loss + diff_loss_1
+        loss = tf_loss + diff_loss_1 + vq_loss
 
         self.log_dict({
             'train_loss': loss,
             'train_tf_loss': tf_loss,
+            'train_vq_loss': vq_loss,
             'train_diff_loss': diff_loss_1,
             'train_diff_100_loss': diff_100_loss_1,
             'train_diff_1000_loss': diff_1000_loss_1,
@@ -140,7 +140,9 @@ class TransDiffusionCombineModel(TransArticulatedBaseModule):
         dim_condition = self.part_structure['condition']
         dim_latent = self.part_structure['latentcode']
 
-        pr_token_con = self.transformer(input, padding_mask, enc_data)
+        pr_token_con, vq_loss = self.transformer(input, padding_mask, enc_data)
+
+        # import pdb; pdb.set_trace();
 
         pr_non_pad_token_con = pr_token_con[(padding_mask > 0.5)]
         gt_non_pad_token = output[(padding_mask > 0.5)]
@@ -150,35 +152,39 @@ class TransDiffusionCombineModel(TransArticulatedBaseModule):
         gt_latent = gt_non_pad_token[:, -dim_latent:]
 
         # z = pr_condition
-        diff_loss, diff_100_loss, diff_1000_loss, z, _ =   \
+        diff_loss, diff_100_loss, diff_1000_loss, pred_z, _ =   \
             self.diffusion.diffusion_model_from_latent(gt_latent, cond=pr_condition)
 
-        z = z.view_as(gt_latent)
-        z = z[end_token_non_pad_mask]
-        z = z.view(-1, z.size(-1))
+        pred_z = pred_z.view_as(gt_latent)
+        pred_z = pred_z[(end_token_non_pad_mask > 0.5)]
+        gt_z = gt_latent[(end_token_non_pad_mask > 0.5)]
 
         if batch_idx == 0:
-            # batched_recon_latent = return_dict["reconstructed_plane_feature"]
-            batched_recon_latent = self.sdf.vae_model.decode(z) # reconstruced triplane features
-            evaluation_count = min(self.e_config['count'], batched_recon_latent.shape[0], z.shape[0])
-            screenshots = [np.random.randn(256, 256, 3) * 255 for _ in range(evaluation_count)]
-            if self.e_config['count'] > batched_recon_latent.shape[0]:
-                Log.warning('`evaluation.count` is greater than batch size. Setting to batch size')
-            for batch in tqdm(range(evaluation_count), desc=f'Generating Mesh for Epoch = {batch_idx}'):
-                recon_latent = batched_recon_latent[[batch]] # ([1, D*3, resolution, resolution])
-                output_mesh = (self.e_config['eval_mesh_output_path'] / f'mesh_{self.trainer.current_epoch}_{batch}.ply').as_posix()
-                try:
-                    MeshUtils.create_mesh(self.sdf, recon_latent,
-                                    output_mesh, N=self.e_config['resolution'],
-                                    max_batch=self.e_config['max_batch'],
-                                    from_plane_features=True)
-                    mesh = trimesh.load(output_mesh)
-                    screenshot = MeshUtils.generate_mesh_screenshot(mesh)
-                except Exception as e:
-                    Log.error(f"Error while generating mesh: {e}")
-                    if "Surface level must be within volume data range" in str(e):
-                        break
-                    continue
-                screenshots[batch] = screenshot
-            image = np.concatenate(screenshots, axis=1)
-            self.logger.log_image(key="Image", images=[wandb.Image(image)])
+            images = []
+            for z in [pred_z, gt_z]:
+                # batched_recon_latent = return_dict["reconstructed_plane_feature"]
+                batched_recon_latent = self.sdf.vae_model.decode(z) # reconstruced triplane features
+                evaluation_count = min(self.e_config['count'], batched_recon_latent.shape[0], z.shape[0])
+                screenshots = [np.random.randn(256, 256, 3) * 255 for _ in range(evaluation_count)]
+                if self.e_config['count'] > batched_recon_latent.shape[0]:
+                    Log.warning('`evaluation.count` is greater than batch size. Setting to batch size')
+                for batch in tqdm(range(evaluation_count), desc=f'Generating Mesh for Epoch = {batch_idx}'):
+                    recon_latent = batched_recon_latent[[batch]] # ([1, D*3, resolution, resolution])
+                    output_mesh = (self.e_config['eval_mesh_output_path'] / f'mesh_{self.trainer.current_epoch}_{batch}.ply').as_posix()
+                    try:
+                        MeshUtils.create_mesh(self.sdf, recon_latent,
+                                        output_mesh, N=self.e_config['resolution'],
+                                        max_batch=self.e_config['max_batch'],
+                                        from_plane_features=True)
+                        mesh = trimesh.load(output_mesh)
+                        screenshot = MeshUtils.generate_mesh_screenshot(mesh)
+                    except Exception as e:
+                        Log.error(f"Error while generating mesh: {e}")
+                        if "Surface level must be within volume data range" in str(e):
+                            break
+                        continue
+                    screenshots[batch] = screenshot
+                image = np.concatenate(screenshots, axis=1)
+                images.append(image)
+            images = np.concatenate(images, axis=0)
+            self.logger.log_image(key="Image", images=[wandb.Image(images)])

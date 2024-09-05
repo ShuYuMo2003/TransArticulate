@@ -137,6 +137,7 @@ class DiffusionNet(nn.Module):
         self.cross_attn = kwargs.get('cross_attn', False)
         self.cond_dropout = kwargs.get('cond_dropout', False)
         self.point_feature_dim = kwargs.get('point_feature_dim', dim)
+        self.dim_condition = kwargs.get('dim_condition')
 
         self.dim_in_out = default(dim_in_out, dim)
         #print("dim, in out, point feature dim: ", dim, dim_in_out, self.point_feature_dim)
@@ -153,7 +154,7 @@ class DiffusionNet(nn.Module):
 
         if self.cond and self.cross_attn:
             self.condition_post_mlp = nn.Sequential(
-                nn.Linear(self.point_feature_dim, self.point_feature_dim * expand_ratio),
+                nn.Linear(self.dim_condition, self.point_feature_dim * expand_ratio),
                 nn.Dropout(kwargs.get('condition_dropout')),
                 nn.LeakyReLU(0.01),
                 nn.Linear(self.point_feature_dim * expand_ratio, self.point_feature_dim * expand_ratio)

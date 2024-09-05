@@ -134,7 +134,7 @@ def generate_obj_pics(_parts_data, percentage, cinema_position):
             mesh.vertices = vertices_on_ground
             meshs.append(mesh)
         except Exception as e:
-            print('Error', e, 'on generating ', dfn, part)
+            print('Error', e, 'on generating ', dfn)
 
 
     # print(dfn_to_part)
