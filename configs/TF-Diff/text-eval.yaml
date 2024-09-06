@@ -1,10 +1,10 @@
-checkpoint_path: /root/autodl-tmp/TransArticulate/train_root_dir/Transformer_Diffusion/checkpoint/09-04-09PM-28-04/epoch=0393-loss=0.00000.ckpt
+checkpoint_path: train_root_dir/Transformer_Diffusion/checkpoint/09-05-05PM-36-44/epoch=0896-loss=0.00000.ckpt
 
 eval_output_path: log/TF-Diff/
 
 t5_max_sentence_length: 128
 
-equal_part_threshold: 0.05
+equal_part_threshold: 0.2
 
 gensdf_latentcode_evaluator:
   gensdf_model_path: null

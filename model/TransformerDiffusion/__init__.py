@@ -106,9 +106,11 @@ class TransDiffusionCombineModel(TransArticulatedBaseModule):
 
         diff_loss_1, diff_100_loss_1, diff_1000_loss_1, pred_latent_1, perturbed_pc_1 =   \
             self.diffusion.diffusion_model_from_latent(gt_latent, cond=pr_condition)
-        # diff_loss = F.mse_loss(gt_latent, pr_condition, reduction='mean')
 
-        loss = tf_loss + diff_loss_1 + vq_loss
+        loss_ratio = self.op_config['loss_ratio']
+        loss = loss_ratio['tf_loss'] * tf_loss    \
+             + loss_ratio['df_loss'] * diff_loss_1  \
+             + loss_ratio['vq_loss'] * vq_loss
 
         self.log_dict({
             'train_loss': loss,

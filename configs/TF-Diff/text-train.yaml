@@ -9,7 +9,7 @@ num_epochs: 1000001
 
 dataset_n_dataloader:
   n_workers: 20
-  batch_size: 32
+  batch_size: 256
 
   dataset_path: data/datasets/4_transformer_dataset
   description_for_each_file: 6
@@ -18,7 +18,7 @@ dataset_n_dataloader:
 
 checkpoint:
   path: train_root_dir/Transformer_Diffusion/checkpoint
-  freq: 2000
+  freq: 4000
 
 part_structure:
   bounding_box: 6
@@ -30,26 +30,26 @@ part_structure:
   latentcode: 768
 
 transformer_model_paramerter:
-  tokenizer_hidden_dim: 2048
+  tokenizer_hidden_dim: 4096
   tokenizer_dropout: 0.1
 
   n_head: 8
   n_layer: 8
-  d_model: 512
+  d_model: 1024
   decoder_dropout: 0.1
 
   position_embedding_dropout: 0.1
   position_embedding_dim_single_emb: 64
 
-  ffn_hidden_dim: 2048
+  ffn_hidden_dim: 4096
   ffn_dropout: 0.1
 
   # channel, weight, height
   vq_expand_dim: [32, 4, 4]
-  n_embed: 512
+  n_embed: 256
   vq_beta: 0.25
   vq_loss_weight: 0.1
-  before_vq_net_deepth: 2
+  before_vq_net_deepth: 4
 
   encoder_kv_dim: 1024 # decided by pretrained encoder model.
   post_encoder_deepth: 4
@@ -84,6 +84,11 @@ optimizer_paramerter:
   eps: 1.0e-9
 
   diff_lr: 3
+
+  loss_ratio:
+    tf_loss: 10
+    vq_loss: 0.5
+    df_loss: 1
 
 evaluation:
   sdf_model_path: null
