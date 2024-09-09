@@ -1,6 +1,6 @@
 from utils import parse_config_from_args
 from lightning.pytorch import seed_everything
-from model.TransformerDiffusion.eval import Evaluater
+from model.Transformer.eval import Evaluater
 from utils.logging import Log
 
 from rich import print

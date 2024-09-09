@@ -180,7 +180,7 @@ def process(shape_info_path:Path, transformer_dataset_path:Path, encoded_text_pa
     return f"[Success] Processed {shape_info_path} part count = {len(datasets)}"
 
 if __name__ == '__main__':
-    best_ckpt_path = '../../train_root_dir/SDF/checkpoint/08-29-07PM-42-50/epoch=0802-loss=0.00377.ckpt'
+    best_ckpt_path = '/root/shared-storage/epoch=0802-loss=0.00377.ckpt'
     transformer_dataset_path = Path('../datasets/4_transformer_dataset')
     shutil.rmtree(transformer_dataset_path, ignore_errors=True)
     transformer_dataset_path.mkdir(exist_ok=True)

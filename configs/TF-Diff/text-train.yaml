@@ -8,8 +8,8 @@ default_root_dir: train_root_dir/Transformer_Diffusion
 num_epochs: 1000001
 
 dataset_n_dataloader:
-  n_workers: 20
-  batch_size: 256
+  n_workers: 10
+  batch_size: 64
 
   dataset_path: data/datasets/4_transformer_dataset
   description_for_each_file: 6
@@ -18,7 +18,7 @@ dataset_n_dataloader:
 
 checkpoint:
   path: train_root_dir/Transformer_Diffusion/checkpoint
-  freq: 4000
+  freq: 2000
 
 part_structure:
   bounding_box: 6
@@ -26,7 +26,7 @@ part_structure:
   joint_data_direction: 3
   limit: 4
   # condition: 128
-  condition: 64
+  condition: 128
   latentcode: 768
 
 transformer_model_paramerter:
@@ -55,26 +55,9 @@ transformer_model_paramerter:
   post_encoder_deepth: 4
   post_encoder_dropout: 0.2
 
-
-diffusion_model_paramerter:
-  diffusion_config:
-    timesteps: 1000
-    objective: pred_x0
-    loss_type: l2
-    perturb_pc: partial
-    crop_percent: 0.5
-    sample_pc_size: 128
-
-  diffusion_model_config:
-    dim: 768
-    depth: 4
-    ff_dropout: 0.3
-    cond: true
-    cross_attn: true
-    cond_dropout: true
-    dim_condition: 64
-    point_feature_dim: 768
-    condition_dropout: 0.2
+diffusion_model:
+  pretrained_model_path: train_root_dir/Diff/checkpoint/09-08-09PM-46-27/epoch=3590-loss=0.00000.ckpt
+  z_hat_dropout: 0.2
 
 optimizer_paramerter:
   tf_lr: 1
@@ -83,16 +66,17 @@ optimizer_paramerter:
   betas: [0.9, 0.98]
   eps: 1.0e-9
 
-  diff_lr: 3
+  diff_lr: 1.0e-4
 
   loss_ratio:
     tf_loss: 10
-    vq_loss: 0.5
-    df_loss: 1
+    vq_loss: 1
+    df_loss: 0.01
 
 evaluation:
   sdf_model_path: null
-  max_batch: 16384  # 2^18
+  max_batch: 8192  # 2^18
+  z_batch: 256
   eval_mesh_output_path: train_root_dir/SDF/tempmesh
   resolution: 256
   count: 10

@@ -18,7 +18,7 @@ from model.SDFAutoEncoder import SDFAutoEncoder
 from utils import untokenize_part_info, generate_gif_toy
 import utils.mesh as MeshUtils
 from utils.logging import Log
-from utils.z_to_msh import GenSDFLatentCodeEvaluator
+from utils.z_to_mesh import GenSDFLatentCodeEvaluator
 
 class Evaluater():
     def __init__(self, eval_config):

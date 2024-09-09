@@ -1,3 +1,4 @@
+import re
 import json
 import torch
 import imageio
@@ -10,6 +11,11 @@ from pathlib import Path
 
 def str2hash(ss):
     return int(hashlib.md5(ss.encode()).hexdigest(), 16)
+
+def camel_to_snake(name):
+    # StorageFurniture -> storage furniture
+    s1 = re.sub('(.)([A-Z][a-z]+)', r'\1 \2', name)
+    return re.sub('([a-z0-9])([A-Z])', r'\1 \2', s1).lower()
 
 def generate_gif_toy(tokens, shape_output_path: Path, bar_prompt:str, n_frame: int=100,
                     n_timepoint: int=50, fps:int=40):

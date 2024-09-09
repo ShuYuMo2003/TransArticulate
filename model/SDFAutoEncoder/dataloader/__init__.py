@@ -17,8 +17,13 @@ class GenSDFDataset(Dataset):
         super().__init__()
 
         dataset_meta = json.loads((dataset_dir / 'meta.json').read_text())
-        if train: self.current_dataset_keyname = dataset_meta['1_extract_from_raw_dataset']['train_split']
-        else:     self.current_dataset_keyname = dataset_meta['1_extract_from_raw_dataset']['test_split']
+
+        if train is None:
+            self.current_dataset_keyname = dataset_meta['1_extract_from_raw_dataset']['train_split'] \
+                                         + dataset_meta['1_extract_from_raw_dataset']['test_split']
+        else:
+            if train: self.current_dataset_keyname = dataset_meta['1_extract_from_raw_dataset']['train_split']
+            else:     self.current_dataset_keyname = dataset_meta['1_extract_from_raw_dataset']['test_split']
 
         self.dataset_dir = list(dataset_dir.glob('2_gensdf_dataset/*.npz'))
         filtered_dataset_dir = []
