@@ -60,15 +60,16 @@ diffusion_model:
   z_hat_dropout: 0.2
 
 optimizer_paramerter:
-  tf_lr: 1
+  tf_lr: 2
   scheduler_factor: 0.0015
   scheduler_warmup: 30
   betas: [0.9, 0.98]
   eps: 1.0e-9
 
-  diff_lr: 1.0e-4
+  diff_lr: 5.0e-3
 
   loss_ratio:
+    et_loss: 1
     tf_loss: 10
     vq_loss: 1
     df_loss: 0.01
@@ -79,5 +80,5 @@ evaluation:
   z_batch: 256
   eval_mesh_output_path: train_root_dir/SDF/tempmesh
   resolution: 256
-  count: 10
-  freq: 50
+  count: 20
+  freq: 20

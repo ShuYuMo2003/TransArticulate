@@ -24,11 +24,6 @@ from utils.logging import Log
 from model.SDFAutoEncoder import SDFAutoEncoder
 from model.Diffusion import Diffusion
 
-def load_config_from_yaml(yaml_path):
-    with open(yaml_path, 'r') as file:
-        config = yaml.safe_load(file)  # 使用 safe_load 以确保安全解析
-    return config
-
 class TransDiffusionCombineModel(TransArticulatedBaseModule):
     def __init__(self, config):
         super().__init__(config)
@@ -39,22 +34,15 @@ class TransDiffusionCombineModel(TransArticulatedBaseModule):
         self.config = config
         self.op_config = config['optimizer_paramerter']
         self.tf_config = config['transformer_model_paramerter']
-        # self.diff_config = config['diffusion_model_paramerter']
         self.part_structure = config['part_structure']
-
-        self.transformer = TransformerDecoder(config)
 
         Log.info('Using pretrained diffusion model: %s', config['diffusion_model']['pretrained_model_path'])
         self.diffusion = Diffusion.load_from_checkpoint(config['diffusion_model']['pretrained_model_path'])
-
         self.diff_config = self.diffusion.diff_config
+        self.config['diff_config'] = self.diffusion.diff_config
+        Log.info('Loaded diffusion model')
 
-        self.condition_post_processor = nn.Sequential(*[
-            ResnetBlockFC(self.part_structure['condition'])
-            for _ in range(4)
-        ])
-        self.to_z_hat_fc = nn.Linear(self.part_structure['condition'], self.diff_config['diffusion_model_config']['z_hat_dim'])
-        self.to_text_hat_fc = nn.Linear(self.part_structure['condition'], self.diff_config['diffusion_model_config']['text_hat_dim'])
+        self.transformer = TransformerDecoder(config)
 
         Log.info('Using pretrained SDF model: %s', config['evaluation']['sdf_model_path'])
         self.e_config = config['evaluation']
@@ -62,9 +50,7 @@ class TransDiffusionCombineModel(TransArticulatedBaseModule):
         self.sdf.eval()
         self.e_config['eval_mesh_output_path'] = Path(self.e_config['eval_mesh_output_path'])
         self.e_config['eval_mesh_output_path'].mkdir(parents=True, exist_ok=True)
-
-        self.z_hat_dropout = nn.Dropout(self.config['diffusion_model']['z_hat_dropout'])
-
+        Log.info('Loaded SDF model')
 
     # @from: https://nlp.seas.harvard.edu/annotated-transformer/#batches-and-masking
     @classmethod
@@ -81,11 +67,7 @@ class TransDiffusionCombineModel(TransArticulatedBaseModule):
 
     def configure_optimizers(self):
         para_list = [
-            { 'params': list(self.transformer.parameters()) +
-                        list(self.condition_post_processor.parameters()) +
-                        list(self.to_z_hat_fc.parameters()) +
-                        list(self.to_text_hat_fc.parameters()) +
-                        list(self.z_hat_dropout.parameters()), 'lr':self.op_config['tf_lr'] },
+            { 'params': list(self.transformer.parameters()), 'lr':self.op_config['tf_lr'] },
             { 'params': self.diffusion.parameters(), 'lr':self.op_config['diff_lr'] }
         ]
         optimizer = Adam(para_list, betas=self.op_config['betas'], eps=float(self.op_config['eps']))
@@ -96,68 +78,90 @@ class TransDiffusionCombineModel(TransArticulatedBaseModule):
                                 self.op_config['scheduler_warmup']))
         return [optimizer], [lr_scheduler]
 
-    def training_step(self, batch, batch_idx):
-        optimizer = self.optimizers()
-        optimizer.zero_grad()
-
-        self.train()
+    def step(self, batch, batch_idx):
         input, output, padding_mask,   \
-            end_token_mask, enc_data, enc_data_raw = batch
+            raw_end_token_mask, enc_data, enc_data_raw = batch
         '''
-            padding_mask:    1 -> not padding token, 0 -> padding token
-            end_token_mask:  1 -> not end token,     0 -> end token
+            padding_mask:        1 -> not padding token, 0 -> padding token
+            raw_end_token_mask:  1 -> not end token,     0 -> end token
         '''
         dim_condition = self.part_structure['condition']
         dim_latent = self.part_structure['latentcode']
 
-        pr_token_con, vq_loss = self.transformer(input, padding_mask, enc_data)
+        pred_result, vq_loss = self.transformer(input, padding_mask, enc_data)
+
+        # do not give a s**t on the padding token at the begining.
+        end_token_mask = (raw_end_token_mask[padding_mask > 0.5] > 0.5)
+        output = output[padding_mask > 0.5]
+
+        #################### end_token loss BEGIN ####################
+        end_token_logits = pred_result['is_end_token_logits']
+        et_loss = F.binary_cross_entropy_with_logits(end_token_logits, end_token_mask.float(), reduction='mean')
+        #################### end_token loss END ####################
+
 
         #################### Transformer Loss BEDIN ####################
-        pr_non_pad_token_con = pr_token_con[(padding_mask > 0.5)]
-        gt_non_pad_token = output[(padding_mask > 0.5)]
-
-        pr_articulate_info = pr_non_pad_token_con[:, :-dim_condition]
-        gt_articulate_info = gt_non_pad_token[:, :-dim_latent]
+        pr_non_pad_articulated_info = pred_result['articulated_info'][end_token_mask]
+        gt_non_pad_articulated_info = output[:, :-dim_latent][end_token_mask]
 
         # For non-pad token (include the end token), calculate the mse-loss as transformer loss, `tf_loss`.
-        tf_loss = F.mse_loss(pr_articulate_info, gt_articulate_info, reduction='mean')
+        tf_loss = F.mse_loss(pr_non_pad_articulated_info,
+                             gt_non_pad_articulated_info, reduction='mean')
         #################### Transformer Loss END ####################
 
-        #################### Diffusion Loss BEGIN ####################
-        # Skip the end token and pad token for diffusion loss. For non pad/end tokens, we call it `valid token`.
-        pr_valid_token_con = pr_token_con[(padding_mask > 0.5) & (end_token_mask > 0.5)]
-        gt_valid_token = output[(padding_mask > 0.5) & (end_token_mask > 0.5)]
 
-        pr_valid_condition = pr_valid_token_con[:, -dim_condition:]
-        gt_valid_latent = gt_valid_token[:, -dim_latent:]
+        #################### Diffusion Loss BEGIN ####################
+        condition = pred_result['condition']
+
+        # Skip the end token and pad token for diffusion loss.
+        condition = {
+            'text': condition['text_hat_condition'][end_token_mask],
+            'z_hat': condition['z_hat_condition'][end_token_mask]
+        }
+
+        gt_latent = output[:, -dim_latent:][end_token_mask]
 
         # import pdb; pdb.set_trace()
 
         diff_loss_1, diff_100_loss_1, diff_1000_loss_1, pred_valid_token_latent_1, perturbed_pc_1 =   \
-            self.diffusion.model.diffusion_model_from_latent(gt_valid_latent, cond={
-                'z_hat': self.z_hat_dropout(self.to_z_hat_fc(pr_valid_condition)),
-                'text': self.to_text_hat_fc(pr_valid_condition)
-            })
+            self.diffusion.model.diffusion_model_from_latent(gt_latent, cond=condition)
         #################### Diffusion Loss END ####################
 
         loss_ratio = self.op_config['loss_ratio']
-        loss = loss_ratio['tf_loss'] * tf_loss    \
-             + loss_ratio['df_loss'] * diff_loss_1  \
-             + loss_ratio['vq_loss'] * vq_loss
+        loss = loss_ratio['tf_loss'] * tf_loss          \
+             + loss_ratio['df_loss'] * diff_loss_1      \
+             + loss_ratio['vq_loss'] * vq_loss          \
+             + loss_ratio['et_loss'] * et_loss
 
-        self.log_dict({
-            'train_loss': loss,
-            'train_tf_loss': tf_loss,
-            'train_vq_loss': vq_loss,
-            'train_diff_loss': diff_loss_1,
-            'train_diff_100_loss': diff_100_loss_1,
-            'train_diff_1000_loss': diff_1000_loss_1,
-            'transformer_lr': optimizer.param_groups[0]['lr'],
-            'diffusion_lr': optimizer.param_groups[1]['lr'],
-        })
+        data = {
+            'loss': loss,
+            'tf_loss': tf_loss,
+            'vq_loss': vq_loss,
+            'diff_loss': diff_loss_1,
+            'et_loss': et_loss,
+            'diff_100_loss': diff_100_loss_1,
+            'diff_1000_loss': diff_1000_loss_1,
+            'pred_valid_token_latent': pred_valid_token_latent_1,
+            'gt_valid_latent': gt_latent
+        }
 
-        self.manual_backward(loss)
+        return data
+
+
+    def training_step(self, batch, batch_idx):
+        optimizer = self.optimizers()
+        optimizer.zero_grad()
+        self.train()
+
+        data = self.step(batch, batch_idx)
+
+        data['transformer_lr'] = optimizer.param_groups[0]['lr']
+        data['diffusion_lr'] = optimizer.param_groups[1]['lr']
+
+        self.manual_backward(data['loss'])
         optimizer.step()
+
+        self.log_dict(data, on_step=True, on_epoch=True, prog_bar=True)
 
         if self.trainer.is_last_batch:
             scheduler = self.lr_schedulers()
@@ -167,48 +171,11 @@ class TransDiffusionCombineModel(TransArticulatedBaseModule):
     @torch.no_grad()
     def validation_step(self, batch, batch_idx):
         self.eval()
-        input, output, padding_mask,   \
-            end_token_mask, enc_data, enc_data_raw = batch
-        '''
-            padding_mask:    1 -> not padding token, 0 -> padding token
-            end_token_mask:  1 -> not end token,     0 -> end token
-        '''
-        dim_condition = self.part_structure['condition']
-        dim_latent = self.part_structure['latentcode']
-
-        pr_token_con, vq_loss = self.transformer(input, padding_mask, enc_data)
-
-        #################### Transformer Loss BEDIN ####################
-        pr_non_pad_token_con = pr_token_con[(padding_mask > 0.5)]
-        gt_non_pad_token = output[(padding_mask > 0.5)]
-
-        pr_articulate_info = pr_non_pad_token_con[:, :-dim_condition]
-        gt_articulate_info = gt_non_pad_token[:, :-dim_latent]
-
-        # For non-pad token (include the end token), calculate the mse-loss as transformer loss `tf_loss`.
-        tf_loss = F.mse_loss(pr_articulate_info, gt_articulate_info, reduction='mean')
-        #################### Transformer Loss END ####################
-
-        #################### Diffusion Loss BEGIN ####################
-        # Skip the end token and pad token for diffusion loss. For non pad/end token, we call it `valid token`.
-        pr_valid_token_con = pr_token_con[(padding_mask > 0.5) & (end_token_mask > 0.5)]
-        gt_valid_token = output[(padding_mask > 0.5) & (end_token_mask > 0.5)]
-
-        pr_valid_condition = pr_valid_token_con[:, -dim_condition:]
-        gt_valid_latent = gt_valid_token[:, -dim_latent:]
-
-        # import pdb; pdb.set_trace()
-
-        diff_loss_1, diff_100_loss_1, diff_1000_loss_1, pred_valid_token_latent_1, perturbed_pc_1 =   \
-            self.diffusion.model.diffusion_model_from_latent(gt_valid_latent, cond={
-                'z_hat': self.to_z_hat_fc(pr_valid_condition),
-                'text': self.to_text_hat_fc(pr_valid_condition)
-            })
-        #################### Diffusion Loss END ####################
+        data = self.step(batch, batch_idx)
 
         if batch_idx == 0:
             images = []
-            for z in [pred_valid_token_latent_1, gt_valid_latent]:
+            for z in [data['pred_valid_token_latent'], data['gt_valid_latent']]:
 
                 z_batch = self.e_config['z_batch']
                 # import pdb; pdb.set_trace()

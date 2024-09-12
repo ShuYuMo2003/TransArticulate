@@ -209,7 +209,7 @@ class _DiffusionModel(nn.Module):
         #model_output1 = self.model(model_input, t, pass_cond=0)
         #model_output2 = self.model(model_input, t, pass_cond=1)
         #model_output = model_output2*5 - model_output1*4
-        model_output = self.model(model_input, t, pass_cond=1)
+        model_output = self.model(model_input, t)
 
         x = model_input[0] if type(model_input) is tuple else model_input
 
@@ -242,14 +242,14 @@ class _DiffusionModel(nn.Module):
     def generate_conditional(self, cond):
         self.eval()
         with torch.no_grad():
-            samp,_ = self.sample(dim=self.model.dim_in_out, batch_size=cond.shape[0], traj=False, cond=cond)
+            samp,_ = self.sample(dim=self.model.dim, batch_size=cond['text'].shape[0], traj=False, cond=cond)
 
         return samp
 
     def generate_unconditional(self, num_samples):
         self.eval()
         with torch.no_grad():
-            samp,_ = self.sample(dim=self.model.dim_in_out, batch_size=num_samples, traj=False, cond=None)
+            samp,_ = self.sample(dim=self.model.dim, batch_size=num_samples, traj=False, cond=None)
 
         return samp
 

@@ -157,7 +157,9 @@ class DiffusionNet(nn.Module):
 
         batch, dim, device, dtype = *data.shape, data.device, data.dtype
 
-        cond_feature['text'] = self.text_hat_expand(cond_feature['text'])
+        # import pdb; pdb.set_trace()
+
+        text_hat_expand_condition = self.text_hat_expand(cond_feature['text'])
 
         z_condition = self.z_to_token_fc(cond_feature['z_hat'])
         time_embed = self.to_time_embeds(diffusion_timesteps)
@@ -165,7 +167,7 @@ class DiffusionNet(nn.Module):
 
         tokens = torch.stack((z_condition, time_embed, data, learned_queries), dim=1)
 
-        tokens = self.causal_transformer(tokens, context=cond_feature['text'])
+        tokens = self.causal_transformer(tokens, context=text_hat_expand_condition)
 
 
         # get learned query, which should predict the sdf layer embedding (per DDPM timestep)

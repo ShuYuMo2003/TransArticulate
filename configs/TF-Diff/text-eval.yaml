@@ -1,4 +1,4 @@
-checkpoint_path: train_root_dir/Transformer_Diffusion/checkpoint/09-06-01PM-40-28/epoch=1316-loss=0.00000.ckpt
+checkpoint_path: train_root_dir/Transformer_Diffusion/checkpoint/09-09-07PM-54-17/epoch=1288-loss=0.00000.ckpt
 
 eval_output_path: log/TF-Diff/
 

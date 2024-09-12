@@ -20,6 +20,11 @@ class TransformerDecoder(nn.Module):
         self.d_model = self.m_config['d_model']
         self.vq_dim = self.m_config['vq_expand_dim']
 
+        self.diff_config = self.config['diff_config']
+        self.to_z_hat_fc = nn.Linear(self.part_structure['condition'], self.diff_config['diffusion_model_config']['z_hat_dim'])
+        self.to_text_hat_fc = nn.Linear(self.part_structure['condition'], self.diff_config['diffusion_model_config']['text_hat_dim'])
+        self.z_hat_dropout = nn.Dropout(self.config['diffusion_model']['z_hat_dropout'])
+
         d_token_latencode = sum(
             [v for k, v in self.part_structure.items() if k != 'condition']
         )
@@ -60,6 +65,12 @@ class TransformerDecoder(nn.Module):
         self.postencoder    = PostEncoder(dim=self.m_config['encoder_kv_dim'], d_model=self.d_model,
                                           dropout=self.m_config['post_encoder_dropout'],
                                           deepth=self.m_config['post_encoder_deepth'])
+
+        self.end_token_logits = nn.Sequential(
+            nn.Linear(self.d_model, self.d_model),
+            nn.GELU(),
+            nn.Linear(self.d_model, 1)
+        )
 
         self.layers         = nn.ModuleList([
             DecoderLayer(config)
@@ -103,5 +114,25 @@ class TransformerDecoder(nn.Module):
             # tokens = layer(tokens, padding_mask, attn_mask, enc_data, None)
             tokens = layer(tokens, padding_mask, attn_mask, enc_data)
 
+        # skip padding mask.
+        tokens = tokens[padding_mask > 0.5]
+
+        end_token_logits = self.end_token_logits(tokens).squeeze(-1)
+
         tokens = self.untokenizer(tokens)
-        return tokens, vq_loss
+
+        conditions = tokens[:, -self.dim_condition:]
+        articulated_info = tokens[:, :-self.dim_condition]
+
+        text_hat_condition = self.to_text_hat_fc(conditions)
+        z_hat_condition = self.to_z_hat_fc(self.z_hat_dropout(conditions))
+
+        result = {
+            'is_end_token_logits': end_token_logits,
+            'articulated_info': articulated_info,
+            'condition': {
+                'text_hat_condition': text_hat_condition,
+                'z_hat_condition': z_hat_condition
+            }
+        }
+        return result, vq_loss
