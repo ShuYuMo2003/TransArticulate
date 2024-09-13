@@ -51,7 +51,7 @@ def generate_obj_pics(_parts_data, percentage, cinema_position):
         for part in parts_data
     }
 
-    # print(dfn_to_part)
+    # print(parts_data)
 
     # Calculate the depth of each part
     for dfn, part in dfn_to_part.items():
@@ -95,17 +95,11 @@ def generate_obj_pics(_parts_data, percentage, cinema_position):
         to_be_apply = [part] + [dfn_to_part[c] for c in child]
         for p in to_be_apply:
             p['transform'] = M @ p.get('transform', np.eye(4))
-            # print('#')
-            # print(M.shape, np.array(p['joint_data_direction'] + [0]).T.shape)
-            # print(np.array(p['joint_data_direction'] + [0]).T)
-            # print(p)
             p['joint_data_direction'] = M @ np.array(p['joint_data_direction'] + [0]).T
             p['joint_data_origin'] = M @ np.array(p['joint_data_origin'] + [1]).T
 
             p['joint_data_direction'] = list(p['joint_data_direction'][:3])
             p['joint_data_origin'] = list(p['joint_data_origin'][:3])
-
-    # print(dfn_to_part)
 
     meshs = []
     for dfn, part in dfn_to_part.items():

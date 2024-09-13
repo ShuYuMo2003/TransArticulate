@@ -10,10 +10,16 @@ if __name__ == '__main__':
     Log.info(f'Loading : {Evaluater}')
     evaluator = Evaluater(config)
 
+    default_text = config.get('input_text')
+
     round = 0
     while True:
-        print(f'[{str(round)}] Input the prompt: ', end='')
-        text = input()
+        if default_text is not None:
+            text = default_text
+            Log.info(f'[{str(round)}] Input the prompt: {text}')
+        else:
+            print(f'[{str(round)}] Input the prompt: ', end='')
+            text = input()
         evaluator.inference(text, round)
         round += 1
         # break

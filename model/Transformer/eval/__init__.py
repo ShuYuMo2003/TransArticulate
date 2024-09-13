@@ -9,7 +9,7 @@ from pathlib import Path
 
 import torch.utils
 from tqdm import trange
-from rich import print
+# from rich import print
 from transformers import AutoTokenizer, T5EncoderModel
 from ..dataloader import TransDiffusionDataset
 from .. import TransDiffusionCombineModel
@@ -81,52 +81,62 @@ class Evaluater():
     def is_end_token(self, token):
         length = token.size(0)
         difference = torch.nn.functional.mse_loss(token[:length], self.end_token[:length])
-        print('    - Difference with end token:', difference.item())
+        Log.info('    - Difference with end token: %s', difference.item())
         return difference < self.equal_part_threshold
 
     def inference(self, text, output_round):
-        print('[1] Inference text: ', text)
+        Log.info('[1] Inference text: %s', text)
         encoded_text = self.encode_text(text)
         exist_node = {
             'fa': torch.tensor([0]).to(self.device),
             'token': copy.deepcopy(self.start_token).unsqueeze(0).to(self.device),
         }
-        all_end = False
         round = 1
-        print('[2] Generate nodes')
+        Log.info('[2] Generate nodes')
         dim_condition = self.m_config['part_structure']['condition']
         dim_latent = self.m_config['part_structure']['latentcode']
-        while not all_end:
+        while True:
             current_length = exist_node['token'].size(0)
-            print('   - Generate nodes round:', round, ', part count:', exist_node['token'].size(0))
+            Log.info('   - Generate nodes round: %s, part count: %s', round, exist_node['token'].size(0))
             with torch.no_grad():
                 output, vq_loss = self.model.transformer({
                                         'fa': exist_node['fa'].unsqueeze(0),        # batched.
                                         'token': exist_node['token'].unsqueeze(0),
                                     },
-                                    self.generate_non_padding_mask(current_length).unsqueeze(0),
+                                    self.generate_non_padding_mask(current_length),
                                     encoded_text) # unbatched.
 
-                output = output[0]
-
             all_end = True
-            condition = output[:, -dim_condition:]
-            print('   - Generate latent code with condition:', str(condition.shape))
+            condition = output['condition']
+
+            # True -> not end token, False -> end token
+            end_token_mask = output['is_end_token_logits'] > 0
+
+            Log.info('   - Check end token: %s', output['is_end_token_logits'])
+            Log.info('   - Check end token mask: %s', end_token_mask)
+
+            if not torch.any(end_token_mask):
+                break
+
+            Log.info('   - Generate latent code with condition')
             latent = self.model.diffusion.model.generate_conditional({
-                'z_hat': self.model.z_hat_dropout(self.model.to_z_hat_fc(condition)),
-                'text': self.model.to_text_hat_fc(condition)
+                'z_hat': condition['z_hat_condition'][end_token_mask],
+                'text': condition['text_hat_condition'][end_token_mask]
             })
-            output = torch.cat((output[:, :-dim_condition], latent), dim=-1)
-            for idx, child_node in enumerate(output):
-                if self.is_end_token(child_node[:-dim_condition]):
-                    continue
+
+            articulated_info = output['articulated_info'][end_token_mask]
+            result = torch.cat((articulated_info, latent), dim=-1)
+
+            fa_idx = torch.arange(end_token_mask.shape[0], device=self.device)
+            fa_idx = fa_idx[end_token_mask]
+
+            for idx, child_node in zip(fa_idx, result):
                 exist_node['fa'] = torch.cat((exist_node['fa'], torch.tensor([idx]).to(self.device)), dim=0)
                 exist_node['token'] = torch.cat((exist_node['token'], child_node.unsqueeze(0)), dim=0)
-                all_end = False
 
         processed_nodes = []
 
-        print('[3] Generate mesh')
+        Log.info('[3] Generate mesh')
 
         for idx in trange(exist_node['fa'].shape[0], desc='   - Generate mesh'):
             dfn_fa = exist_node['fa'][idx].item()
@@ -144,10 +154,17 @@ class Evaluater():
             processed_nodes.append(processed_node)
 
         output_path = (Path(self.eval_output_path) / f'output-{output_round}.gif')
-        print('[4] Generate Gif: ', output_path.as_posix())
+        Log.info('[4] Generate Gif: %s', output_path.as_posix())
+
+        # import pickle
+        # with open('processed_nodes.pkl', 'wb') as f:
+        #     pickle.dump(processed_nodes, f)
+
+        # exit()
+
         generate_gif_toy(processed_nodes[1:], output_path,
                          bar_prompt="   - Generate Frames")
-        print('[5] Done')
+        Log.info('[5] Done')
 
     # def reconstruct(self, text, file_name):
     #     json_path = Path(self.eval_output_path) / '1_info'
