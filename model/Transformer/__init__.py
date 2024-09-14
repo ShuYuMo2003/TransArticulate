@@ -113,16 +113,16 @@ class TransDiffusionCombineModel(TransArticulatedBaseModule):
         #################### Diffusion Loss BEGIN ####################
         condition = pred_result['condition']
 
+        min_bbox, max_bbox = pr_non_pad_articulated_info[:, 0:3], pr_non_pad_articulated_info[:, 3:6]
+        bbox_ratio = (max_bbox - min_bbox)
+        bbox_ratio = bbox_ratio / bbox_ratio.pow(2).sum(dim=1, keepdim=True).sqrt()
         # Skip the end token and pad token for diffusion loss.
         condition = {
             'text': condition['text_hat_condition'][end_token_mask],
-            'z_hat': condition['z_hat_condition'][end_token_mask]
+            'z_hat': condition['z_hat_condition'][end_token_mask],
+            'bbox_ratio': bbox_ratio
         }
-
         gt_latent = output[:, -dim_latent:][end_token_mask]
-
-        # import pdb; pdb.set_trace()
-
         diff_loss_1, diff_100_loss_1, diff_1000_loss_1, pred_valid_token_latent_1, perturbed_pc_1 =   \
             self.diffusion.model.diffusion_model_from_latent(gt_latent, cond=condition)
         #################### Diffusion Loss END ####################
@@ -160,6 +160,10 @@ class TransDiffusionCombineModel(TransArticulatedBaseModule):
 
         self.manual_backward(data['loss'])
         optimizer.step()
+
+
+        del data['pred_valid_token_latent']
+        del data['gt_valid_latent']
 
         self.log_dict(data, on_step=True, on_epoch=True, prog_bar=True)
 

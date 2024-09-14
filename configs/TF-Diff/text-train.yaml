@@ -56,7 +56,7 @@ transformer_model_paramerter:
   post_encoder_dropout: 0.2
 
 diffusion_model:
-  pretrained_model_path: train_root_dir/Diff/checkpoint/09-08-09PM-46-27/epoch=3590-loss=0.00000.ckpt
+  pretrained_model_path: train_root_dir/Diff/checkpoint/09-14-12AM-12-23/epoch=3909-loss=0.00091.ckpt
   z_hat_dropout: 0.2
 
 optimizer_paramerter:
@@ -66,13 +66,13 @@ optimizer_paramerter:
   betas: [0.9, 0.98]
   eps: 1.0e-9
 
-  diff_lr: 1.0e-4
+  diff_lr: 1.0e-15
 
   loss_ratio:
-    et_loss: 1
+    et_loss: 2
     tf_loss: 10
-    vq_loss: 1
-    df_loss: 0.01
+    vq_loss: 2
+    df_loss: 10
 
 evaluation:
   sdf_model_path: null

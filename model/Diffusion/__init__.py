@@ -76,9 +76,8 @@ class Diffusion(TransArticulatedBaseModule):
                                 list(self.compress_text_conditon_c.parameters()),
                                 lr=self.config['lr'])
 
-    def training_step(self, batch, batch_idx):
-        self.train()
-        text, z = batch
+    def step(self, batch, batch_idx):
+        text, z, bbox_ratio = batch
 
         z_hat = self.compress_latentcode(z)
 
@@ -93,41 +92,41 @@ class Diffusion(TransArticulatedBaseModule):
         diff_loss_1, diff_100_loss_1, diff_1000_loss_1, pred_latent_1, perturbed_pc_1 =   \
             self.model.diffusion_model_from_latent(z, cond={
                 'z_hat': z_hat,
-                'text': text_hat
+                'text': text_hat,
+                'bbox_ratio': bbox_ratio
             })
 
         loss = vq_loss + diff_loss_1
 
-        self.log_dict({
-            'train_vq_loss': vq_loss,
-            'train_diff_loss_1': diff_loss_1,
-            'train_diff_100_loss_1': diff_100_loss_1,
-            'train_diff_1000_loss_1': diff_1000_loss_1,
-        })
+        data = {
+            'z': z,
+            'pred_latent_1': pred_latent_1,
+            'loss': loss,
+            'vq_loss': vq_loss,
+            'diff_loss_1': diff_loss_1,
+            'diff_100_loss_1': diff_100_loss_1,
+            'diff_1000_loss_1': diff_1000_loss_1,
+        }
 
-        return loss
+        return data
+
+    def training_step(self, batch, batch_idx):
+        self.train()
+        result = self.step(batch, batch_idx)
+
+        del result['pred_latent_1']
+        del result['z']
+        self.log_dict(result)
+
+        return result['loss']
 
     def validation_step(self, batch, batch_idx):
         if batch_idx != 0: return
         self.eval()
 
-        text, z = batch
-
-        z_hat = self.compress_latentcode(z)
-
-        # z_hat = torch.zeros(z.shape[0], self.diff_config['diffusion_model_config']['z_hat_dim'], deivce=z.device)
-
-        text                    = self.compress_text_conditon_a(text)
-        vq_loss, text, _, _, _  = self.compress_text_conditon_b(text)
-        text_hat                = self.compress_text_conditon_c(text)
-
-        # import pdb; pdb.set_trace()
-
-        diff_loss_1, diff_100_loss_1, diff_1000_loss_1, pred_latent_1, perturbed_pc_1 =   \
-            self.model.diffusion_model_from_latent(z, cond={
-                'z_hat': z_hat,
-                'text': text_hat
-            })
+        result = self.step(batch, batch_idx)
+        pred_latent_1 = result['pred_latent_1']
+        z = result['z']
 
         images = []
         for z in [pred_latent_1, z]:

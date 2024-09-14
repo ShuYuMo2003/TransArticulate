@@ -42,10 +42,11 @@ diffusion_model_paramerter:
     depth: 4
     z_hat_dim: 32
     text_hat_dim: 64
+    bbox_ratio_dim: 3
     text_expand_ratio: 4
     dim: 768
     ff_dropout: 0.3
-    resnet_deepth: 4
+    resnet_deepth: 2
 
 lr: 1.0e-5
 

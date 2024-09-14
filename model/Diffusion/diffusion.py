@@ -89,6 +89,7 @@ class DiffusionNet(nn.Module):
         dim,
         z_hat_dim=None,
         text_hat_dim=None,
+        bbox_ratio_dim=None,
         resnet_deepth=None,
         text_expand_ratio=None,
         **kwargs
@@ -109,15 +110,16 @@ class DiffusionNet(nn.Module):
             +  [ResnetBlockFC(dim) for _ in range(resnet_deepth-1)]
         ))
 
-        self.text_hat_expand = nn.Sequential(*(
-            [
-                ResnetBlockFC(self.text_hat_dim, dim * self.text_expand_ratio),
-            ]+[
-                ResnetBlockFC(dim * self.text_expand_ratio) for _ in range(resnet_deepth-1)
-            ]+[
-                Rearrange('b (n d) -> b n d', n=self.text_expand_ratio, d=dim)
-            ]
+        self.bbox_to_token_fc = nn.Sequential(*(
+            [ResnetBlockFC(bbox_ratio_dim, dim)] +
+            [ResnetBlockFC(dim) for _ in range(resnet_deepth-1)]
         ))
+
+        self.text_hat_expand = nn.Sequential(*([
+                ResnetBlockFC(self.text_hat_dim, dim * self.text_expand_ratio),
+            ]+[ ResnetBlockFC(dim * self.text_expand_ratio) for _ in range(resnet_deepth-1)
+            ]+[ Rearrange('b (n d) -> b n d', n=self.text_expand_ratio, d=dim)
+        ]))
 
         # last input to the transformer: "a final embedding whose output from the Transformer is used to predicted the unnoised CLIP image embedding"
         self.learned_query = nn.Parameter(torch.randn(self.dim))
@@ -138,15 +140,12 @@ class DiffusionNet(nn.Module):
         # classifier-free guidance: 20% unconditional
 
         P = torch.randint(low=0, high=10, size=(1,))
-        if P < 1: # 0           -> 10% null condition
+
+        if P < 4: # 0 1 2 3       -> 40% only text and bbox_ratio condition
             cond_feature = {
                 'z_hat': torch.zeros_like(cond['z_hat'], device=data.device),
-                'text': torch.zeros_like(cond['text'], device=data.device)
-            }
-        elif P < 3: # 1 2       -> 20% only text condition
-            cond_feature = {
-                'z_hat': torch.zeros_like(cond['z_hat'], device=data.device),
-                'text': cond['text']
+                'text': cond['text'],
+                'bbox_ratio': cond['bbox_ratio']
             }
         else: #                 -> 70% full condition
             cond_feature = cond
@@ -164,11 +163,12 @@ class DiffusionNet(nn.Module):
         z_condition = self.z_to_token_fc(cond_feature['z_hat'])
         time_embed = self.to_time_embeds(diffusion_timesteps)
         learned_queries = repeat(self.learned_query, 'd -> b d', b = batch)
+        bbox_condition = self.bbox_to_token_fc(cond_feature['bbox_ratio'])
 
-        tokens = torch.stack((z_condition, time_embed, data, learned_queries), dim=1)
+        tokens = torch.stack((z_condition, bbox_condition, time_embed,
+                              data, learned_queries), dim=1)
 
         tokens = self.causal_transformer(tokens, context=text_hat_expand_condition)
-
 
         # get learned query, which should predict the sdf layer embedding (per DDPM timestep)
         pred = tokens[:, -1, :]

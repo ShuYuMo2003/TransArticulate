@@ -12,4 +12,4 @@ gensdf_latentcode_evaluator:
   max_batch: 262144         # 2 ^ 18
 
 
-input_text: A USB device with a hinged mechanism where the front part can pivot upwards, revealing or concealing the USB connector.
+input_text: ' '

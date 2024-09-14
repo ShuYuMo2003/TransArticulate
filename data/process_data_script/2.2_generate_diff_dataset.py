@@ -1,6 +1,7 @@
 import json
 import torch
 import shutil
+import trimesh
 import numpy as np
 from tqdm import tqdm
 from pathlib import Path
@@ -102,11 +103,20 @@ if __name__ == '__main__':
 
     texts = set()
 
+    path_to_bbox_ratio = {}
+
     for shape_json_path in list(mesh_info_path.glob('*.json')):
         shape_json = json.loads(shape_json_path.read_text())
         shape_name = camel_to_snake(shape_json['meta']['catecory'])
         for part_info in shape_json['part']:
             texts.add(f"{shape_name}, {part_info['name']}")
+
+            # Calculate bounding box ratio
+            min_bbox, max_bbox = part_info['bounding_box']
+            min_bbox, max_bbox = np.array(min_bbox), np.array(max_bbox)
+            ratios = (max_bbox - min_bbox)
+            ratios = ratios / np.linalg.norm(ratios)
+            path_to_bbox_ratio[part_info['mesh']] = ratios
 
     text_to_e_text = encode_texts(texts, t5_cache_path, t5_model_name, t5_batch_size, device, t5_max_sentence_length)
 
@@ -121,9 +131,14 @@ if __name__ == '__main__':
                 Log.warning(f"Latent code for {mesh_name} not found")
                 failed.append(mesh_name)
                 continue
+            if path_to_bbox_ratio.get(part_info['mesh']) is None:
+                Log.warning(f"Bounding_box for {mesh_name} not found")
+                failed.append(mesh_name)
+                continue
             # Log.info(f"Saving {mesh_name} latent code and text")
             np.savez(output_path / f"{mesh_name}.npz",
                      latent_code=path_to_latent[part_info['mesh']],
+                     bounding_box=path_to_bbox_ratio[part_info['mesh']],
                      text=text_to_e_text[f"{shape_name}, {part_info['name']}"])
             success.append(mesh_name)
 
