@@ -8,25 +8,30 @@ default_root_dir: train_root_dir/Diff
 num_epochs: 1000001
 
 dataset_n_dataloader:
-  n_workers: 10
-  batch_size: 64
+  n_workers: 32
+  batch_size: 256
 
   dataset_path: data/datasets/2.1_text_n_latentcode
 
 checkpoint:
   path: train_root_dir/Diff/checkpoint
-  freq: 2000
+  freq: 500
 
 diffusion_model_paramerter:
   dim_latentcode: 768
 
-  z_compress_depth: 2
+  z_compress_depth: 4
+  z_hat_dim: 32
+
+  # 拆分成多少段。
+  gsemb_latent_dim: 4
+  gsemb_num_embeddings: 128
 
   text_condition:
     d_model: 1024
     compressed_d_model: 128
     padding_length: 16
-    resnet_deepth: 2
+    resnet_deepth: 1
     vq_n_emb: 128
     vq_width: 4
     vq_height: 4
@@ -40,7 +45,6 @@ diffusion_model_paramerter:
 
   diffusion_model_config:
     depth: 4
-    z_hat_dim: 32
     text_hat_dim: 64
     bbox_ratio_dim: 3
     text_expand_ratio: 4
@@ -49,6 +53,8 @@ diffusion_model_paramerter:
     resnet_deepth: 2
 
 lr: 1.0e-5
+z_KL_ratio: 1
+tau_ratio_on_epoch: 0.0003 # when epoch == 10k, tau = 0.0003 * 10k + 0.2 = 3.2
 
 evaluation:
   sdf_model_path: null

@@ -118,13 +118,18 @@ class Evaluater():
             if not torch.any(end_token_mask):
                 break
 
+            articulated_info = output['articulated_info'][end_token_mask]
+            min_bbox, max_bbox = articulated_info[:, 0:3], articulated_info[:, 3:6]
+            bbox_ratio = (max_bbox - min_bbox)
+            bbox_ratio = bbox_ratio / bbox_ratio.pow(2).sum(dim=1, keepdim=True).sqrt()
+
             Log.info('   - Generate latent code with condition')
             latent = self.model.diffusion.model.generate_conditional({
                 'z_hat': condition['z_hat_condition'][end_token_mask],
-                'text': condition['text_hat_condition'][end_token_mask]
+                'text': condition['text_hat_condition'][end_token_mask],
+                'bbox_ratio': bbox_ratio
             })
 
-            articulated_info = output['articulated_info'][end_token_mask]
             result = torch.cat((articulated_info, latent), dim=-1)
 
             fa_idx = torch.arange(end_token_mask.shape[0], device=self.device)

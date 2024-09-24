@@ -1,6 +1,7 @@
 import wandb
 import torch
 import trimesh
+import random
 import numpy as np
 import lightning as L
 from pathlib import Path
@@ -10,12 +11,11 @@ from tqdm import tqdm
 from utils.base import TransArticulatedBaseModule
 from model.SDFAutoEncoder import SDFAutoEncoder
 
-from einops.layers.torch import Rearrange
-
 from .diffusion import DiffusionNet
 from .diffusion_wapper import DiffusionModel
 from .utils.helpers import ResnetBlockFC
-from .vq_embedding import VQEmbedding
+
+from .mini_encoders import TextConditionEncoder, ZConditionEncoder
 
 from utils.logging import Log
 
@@ -30,37 +30,9 @@ class Diffusion(TransArticulatedBaseModule):
 
         diffusion_core = DiffusionNet(**self.diff_config['diffusion_model_config'])
         self.model = DiffusionModel(diffusion_core, config)
-        self.compress_latentcode = nn.Sequential(*([
-            ResnetBlockFC(self.diff_config['dim_latentcode'])
-            for _ in range(self.diff_config['z_compress_depth'])
-        ] + [
-            nn.Linear(self.diff_config['dim_latentcode'],
-                      self.diff_config['diffusion_model_config']['z_hat_dim']), # bottleneck
-        ]))
 
-        self.t_config = self.diff_config['text_condition']
-
-        seqXdmodel = self.t_config['padding_length'] * self.t_config['d_model']
-        seqXcomdmodel = self.t_config['padding_length'] * self.t_config['compressed_d_model']
-
-        self.compress_text_conditon_a = nn.Sequential(*([
-                nn.Linear(self.t_config['d_model'], self.t_config['compressed_d_model']),
-                Rearrange('b s d -> b (s d)'),
-            ]+[
-                ResnetBlockFC(seqXcomdmodel) for _ in range(self.t_config['resnet_deepth'])
-            ]+[
-                nn.Linear(seqXcomdmodel, self.t_config['vq_width'] * self.t_config['vq_height'] * self.t_config['vq_dim_emb']),
-                Rearrange('b (h w c) -> b c w h', c=self.t_config['vq_dim_emb'], w=self.t_config['vq_width'], h=self.t_config['vq_height']),
-        ]))
-        self.compress_text_conditon_b = VQEmbedding(n_e=self.t_config['vq_n_emb'], e_dim=self.t_config['vq_dim_emb'], beta=self.t_config['vq_beta'])
-        hwc_total = self.t_config['vq_width'] * self.t_config['vq_height'] * self.t_config['vq_dim_emb']
-        self.compress_text_conditon_c = nn.Sequential(*([
-                Rearrange('b c w h -> b (h w c)', c=self.t_config['vq_dim_emb'], w=self.t_config['vq_width'], h=self.t_config['vq_height']),
-            ]+[
-                ResnetBlockFC(hwc_total) for _ in range(self.t_config['resnet_deepth'])
-            ]+[
-                nn.Linear(hwc_total, self.diff_config['diffusion_model_config']['text_hat_dim']),
-        ]))
+        self.text_mini_encoder = TextConditionEncoder(config)
+        self.z_mini_encoder = ZConditionEncoder(config)
 
         self.e_config = config['evaluation']
         self.e_config['eval_mesh_output_path'] = Path(self.e_config['eval_mesh_output_path'] )
@@ -70,33 +42,31 @@ class Diffusion(TransArticulatedBaseModule):
 
     def configure_optimizers(self):
         return torch.optim.Adam(list(self.model.parameters()) +
-                                list(self.compress_latentcode.parameters()) +
-                                list(self.compress_text_conditon_a.parameters()) +
-                                list(self.compress_text_conditon_b.parameters()) +
-                                list(self.compress_text_conditon_c.parameters()),
+                                list(self.text_mini_encoder.parameters()) +
+                                list(self.z_mini_encoder.parameters()),
                                 lr=self.config['lr'])
 
     def step(self, batch, batch_idx):
         text, z, bbox_ratio = batch
 
-        z_hat = self.compress_latentcode(z)
+        # 高温度：样本接近均匀分布，元素之间的差异较小。
+        # 低温度：样本更接近于离散的 one-hot 向量。
 
-        # z_hat = torch.zeros(z.shape[0], self.diff_config['diffusion_model_config']['z_hat_dim'], deivce=z.device)
+        max_tau = 0.2 + self.current_epoch * self.config['tau_ratio_on_epoch']
+        min_tau = 0.19
+        tau = random.uniform(min_tau, max_tau)
 
-        text                    = self.compress_text_conditon_a(text)
-        vq_loss, text, _, _, _  = self.compress_text_conditon_b(text)
-        text_hat                = self.compress_text_conditon_c(text)
-
-        # import pdb; pdb.set_trace()
+        z_conditions, z_KL, z_perplexity, z_logits = self.z_mini_encoder(z, tau)
+        vq_loss, text_hat = self.text_mini_encoder(text)
 
         diff_loss_1, diff_100_loss_1, diff_1000_loss_1, pred_latent_1, perturbed_pc_1 =   \
             self.model.diffusion_model_from_latent(z, cond={
-                'z_hat': z_hat,
-                'text': text_hat,
-                'bbox_ratio': bbox_ratio
+                'z_hat': z_conditions,
+                'text': text_hat, # (batch, 4, z_dim)
             })
 
-        loss = vq_loss + diff_loss_1
+        z_KL = self.config['z_KL_ratio'] * z_KL
+        loss = vq_loss + diff_loss_1 + z_KL
 
         data = {
             'z': z,
@@ -106,6 +76,12 @@ class Diffusion(TransArticulatedBaseModule):
             'diff_loss_1': diff_loss_1,
             'diff_100_loss_1': diff_100_loss_1,
             'diff_1000_loss_1': diff_1000_loss_1,
+            'z_KL': z_KL,
+            'z_perplexity': z_perplexity,
+            'z_logits': z_logits,
+            'tau': tau,
+            'tau_max': max_tau,
+            'tau_min': min_tau
         }
 
         return data
@@ -116,6 +92,8 @@ class Diffusion(TransArticulatedBaseModule):
 
         del result['pred_latent_1']
         del result['z']
+        del result['z_logits']
+
         self.log_dict(result)
 
         return result['loss']

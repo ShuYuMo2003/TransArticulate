@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 
+from rich import print
 from einops import repeat
 from einops.layers.torch import Rearrange
 
@@ -106,15 +107,6 @@ class DiffusionNet(nn.Module):
             # Rearrange('b (n d) -> b n d', n=1)
         )
 
-        self.z_to_token_fc = nn.Sequential(*([ResnetBlockFC(self.z_hat_dim, dim)]
-            +  [ResnetBlockFC(dim) for _ in range(resnet_deepth-1)]
-        ))
-
-        self.bbox_to_token_fc = nn.Sequential(*(
-            [ResnetBlockFC(bbox_ratio_dim, dim)] +
-            [ResnetBlockFC(dim) for _ in range(resnet_deepth-1)]
-        ))
-
         self.text_hat_expand = nn.Sequential(*([
                 ResnetBlockFC(self.text_hat_dim, dim * self.text_expand_ratio),
             ]+[ ResnetBlockFC(dim * self.text_expand_ratio) for _ in range(resnet_deepth-1)
@@ -136,19 +128,18 @@ class DiffusionNet(nn.Module):
         # adding noise to cond_feature so doing this in diffusion.py
         data, cond = data
 
-
-        # classifier-free guidance: 20% unconditional
-
+        # classifier-free guidance: 40% unconditional
         P = torch.randint(low=0, high=10, size=(1,))
-
-        if P < 4: # 0 1 2 3       -> 40% only text and bbox_ratio condition
+        if P < 4: # 0 1 2 3       -> 40% only text condition
             cond_feature = {
                 'z_hat': torch.zeros_like(cond['z_hat'], device=data.device),
-                'text': cond['text'],
-                'bbox_ratio': cond['bbox_ratio']
+                'text': cond['text']
             }
-        else: #                 -> 70% full condition
-            cond_feature = cond
+        else: #                 -> 60% full condition
+            cond_feature = {
+                'z_hat': cond['z_hat'],
+                'text': cond['text']
+            }
 
         # [SJY]: z_hat: context-attention to affect the process
         #        text:  cross-attention to affect the process
@@ -160,13 +151,13 @@ class DiffusionNet(nn.Module):
 
         text_hat_expand_condition = self.text_hat_expand(cond_feature['text'])
 
-        z_condition = self.z_to_token_fc(cond_feature['z_hat'])
+        z_condition = cond_feature['z_hat'] # (batch, 4, z_dim)
         time_embed = self.to_time_embeds(diffusion_timesteps)
         learned_queries = repeat(self.learned_query, 'd -> b d', b = batch)
-        bbox_condition = self.bbox_to_token_fc(cond_feature['bbox_ratio'])
 
-        tokens = torch.stack((z_condition, bbox_condition, time_embed,
-                              data, learned_queries), dim=1)
+        tokens = torch.stack((time_embed, data, learned_queries), dim=1)
+        print(z_condition.shape, tokens.shape)
+        tokens = torch.cat((z_condition, tokens), dim=1)
 
         tokens = self.causal_transformer(tokens, context=text_hat_expand_condition)
 

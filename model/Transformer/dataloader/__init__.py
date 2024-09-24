@@ -38,8 +38,11 @@ class TransDiffusionDataset(dataset.Dataset):
 
         self.cut_off = cut_off
 
-    def get_onet_ckpt_path(self):
-        return self.meta['best_ckpt_path']
+    def get_best_diffusion_ckpt_path(self):
+        return self.meta['best_diffusion_ckpt_path']
+
+    def get_best_sdf_ckpt_path(self):
+        return self.meta['best_sdf_ckpt_path']
 
     def __len__(self):
         return len(self.files_path)
@@ -90,14 +93,34 @@ class TransDiffusionDataset(dataset.Dataset):
         # 1:   not end token,    0: end token
         output_skip_end_token_mask = []
         for node in infer_nodes:
-            output.append(torch.tensor(node['token'], dtype=torch.float32))
+            node['packed_info'] = {
+                'z_logits': torch.tensor(node['packed_info']['z_logits']),
+                'latent': torch.tensor(node['packed_info']['latent']),
+                'text_hat': torch.tensor(node['packed_info']['text_hat'])
+            }
+            output.append({
+                'token': torch.tensor(node['token'], dtype=torch.float32),
+                'packed_info': node['packed_info']
+            })
             output_skip_end_token_mask.append(0 if node['dfn'] == -1 else 1)
 
         for _ in range(self.max_count_token - len(output)):
-            output.append(copy.deepcopy(self.pad_token))
+            output.append({
+                'token': copy.deepcopy(self.pad_token),
+                'packed_info': node['packed_info'] # node here is not impertant. It is padding token, just for batching data.
+            })
             output_skip_end_token_mask.append(1)
 
-        output = torch.stack(output)
+
+        # (seq, attribute) --> (attribute, seq)
+        transformed_output = {
+                'token': torch.stack([node['token'] for node in output]),
+                'packed_info': {
+                    'z_logits': torch.stack([node['packed_info']['z_logits'] for node in output]),
+                    'latent': torch.stack([node['packed_info']['latent'] for node in output]),
+                    'text_hat': torch.stack([node['packed_info']['text_hat'] for node in output])
+                }
+            }
 
         output_skip_end_token_mask = torch.tensor(output_skip_end_token_mask, dtype=torch.int)
 
@@ -105,6 +128,6 @@ class TransDiffusionDataset(dataset.Dataset):
         padding_mask = torch.ones(self.max_count_token, dtype=torch.int16)
         padding_mask[total_token:] = 0
 
-        return [transformed_input, output, padding_mask, output_skip_end_token_mask] +   \
+        return [transformed_input, transformed_output, padding_mask, output_skip_end_token_mask] +   \
                     ([enc['encoded_text'], enc['text']] if self.enc_data_fieldname == 'description'
                 else [enc.astype(np.float32), str(enc_path)])

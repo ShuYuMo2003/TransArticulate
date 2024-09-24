@@ -40,6 +40,7 @@ class TransDiffusionCombineModel(TransArticulatedBaseModule):
         self.diffusion = Diffusion.load_from_checkpoint(config['diffusion_model']['pretrained_model_path'])
         self.diff_config = self.diffusion.diff_config
         self.config['diff_config'] = self.diffusion.diff_config
+        self.z_mini_encoder = self.diffusion.z_mini_encoder
         Log.info('Loaded diffusion model')
 
         self.transformer = TransformerDecoder(config)
@@ -68,7 +69,7 @@ class TransDiffusionCombineModel(TransArticulatedBaseModule):
     def configure_optimizers(self):
         para_list = [
             { 'params': list(self.transformer.parameters()), 'lr':self.op_config['tf_lr'] },
-            { 'params': self.diffusion.parameters(), 'lr':self.op_config['diff_lr'] }
+            # { 'params': self.diffusion.parameters(), 'lr':self.op_config['diff_lr'] }
         ]
         optimizer = Adam(para_list, betas=self.op_config['betas'], eps=float(self.op_config['eps']))
         lr_scheduler = LambdaLR(optimizer,
@@ -90,9 +91,14 @@ class TransDiffusionCombineModel(TransArticulatedBaseModule):
 
         pred_result, vq_loss = self.transformer(input, padding_mask, enc_data)
 
-        # do not give a s**t on the padding token at the begining.
+        # Do not give a s**t on the padding token at the begining.
         end_token_mask = (raw_end_token_mask[padding_mask > 0.5] > 0.5)
-        output = output[padding_mask > 0.5]
+        token_output = output['token']
+        packed_info = output['packed_info']
+
+        token_output = token_output[padding_mask > 0.5]
+        packed_info_z_logits = packed_info['z_logits'][padding_mask > 0.5]
+        packed_info_text_hat = packed_info['text_hat'][padding_mask > 0.5]
 
         #################### end_token loss BEGIN ####################
         end_token_logits = pred_result['is_end_token_logits']
@@ -102,7 +108,7 @@ class TransDiffusionCombineModel(TransArticulatedBaseModule):
 
         #################### Transformer Loss BEDIN ####################
         pr_non_pad_articulated_info = pred_result['articulated_info'][end_token_mask]
-        gt_non_pad_articulated_info = output[:, :-dim_latent][end_token_mask]
+        gt_non_pad_articulated_info = token_output[:,   :-dim_latent][end_token_mask]
 
         # For non-pad token (include the end token), calculate the mse-loss as transformer loss, `tf_loss`.
         tf_loss = F.mse_loss(pr_non_pad_articulated_info,
@@ -110,39 +116,52 @@ class TransDiffusionCombineModel(TransArticulatedBaseModule):
         #################### Transformer Loss END ####################
 
 
-        #################### Diffusion Loss BEGIN ####################
-        condition = pred_result['condition']
+        #################### For-Diffusion Loss BEGIN ####################
+        pred_text_hat = pred_result['condition']['text_hat'][end_token_mask]
+        pred_z_logits = pred_result['condition']['z_logits'][end_token_mask]
 
-        min_bbox, max_bbox = pr_non_pad_articulated_info[:, 0:3], pr_non_pad_articulated_info[:, 3:6]
-        bbox_ratio = (max_bbox - min_bbox)
-        bbox_ratio = bbox_ratio / bbox_ratio.pow(2).sum(dim=1, keepdim=True).sqrt()
-        # Skip the end token and pad token for diffusion loss.
-        condition = {
-            'text': condition['text_hat_condition'][end_token_mask],
-            'z_hat': condition['z_hat_condition'][end_token_mask],
-            'bbox_ratio': bbox_ratio
-        }
-        gt_latent = output[:, -dim_latent:][end_token_mask]
-        diff_loss_1, diff_100_loss_1, diff_1000_loss_1, pred_valid_token_latent_1, perturbed_pc_1 =   \
-            self.diffusion.model.diffusion_model_from_latent(gt_latent, cond=condition)
-        #################### Diffusion Loss END ####################
+        non_end_text_hat = packed_info_text_hat[end_token_mask]
+        non_end_z_logits = packed_info_z_logits[end_token_mask]
+
+        text_hat_loss = F.mse_loss(pred_text_hat, non_end_text_hat)
+        z_logits_loss = F.kl_div(pred_z_logits, non_end_z_logits, reduction='batchmean')
+        #################### For-Diffusion Loss END ####################
+
+
+        # # #################### Diffusion Loss BEGIN ####################
+        # # condition = pred_result['condition']
+        # # min_bbox, max_bbox = pr_non_pad_articulated_info[:, 0:3], pr_non_pad_articulated_info[:, 3:6]
+        # # bbox_ratio = (max_bbox - min_bbox)
+        # # bbox_ratio = bbox_ratio / bbox_ratio.pow(2).sum(dim=1, keepdim=True).sqrt()
+        # # # Skip the end token and pad token for diffusion loss.
+        # # condition = {
+        # #     'text': condition['text_hat_condition'][end_token_mask],
+        # #     'z_hat': condition['z_hat_condition'][end_token_mask],
+        # #     'bbox_ratio': bbox_ratio
+        # # }
+        gt_latent = token_output[:, -dim_latent:][end_token_mask]
+        # # diff_loss_1, diff_100_loss_1, diff_1000_loss_1, pred_valid_token_latent_1, perturbed_pc_1 =   \
+        # #     self.diffusion.model.diffusion_model_from_latent(gt_latent, cond=condition)
+        # # #################### Diffusion Loss END ####################
 
         loss_ratio = self.op_config['loss_ratio']
         loss = loss_ratio['tf_loss'] * tf_loss          \
-             + loss_ratio['df_loss'] * diff_loss_1      \
              + loss_ratio['vq_loss'] * vq_loss          \
-             + loss_ratio['et_loss'] * et_loss
+             + loss_ratio['et_loss'] * et_loss          \
+             + loss_ratio['th_loss'] * text_hat_loss    \
+             + loss_ratio['zl_loss'] * z_logits_loss
+            #  + loss_ratio['df_loss'] * diff_loss_1
 
         data = {
             'loss': loss,
             'tf_loss': tf_loss,
             'vq_loss': vq_loss,
-            'diff_loss': diff_loss_1,
             'et_loss': et_loss,
-            'diff_100_loss': diff_100_loss_1,
-            'diff_1000_loss': diff_1000_loss_1,
-            'pred_valid_token_latent': pred_valid_token_latent_1,
-            'gt_valid_latent': gt_latent
+            'text_hat_loss': text_hat_loss,
+            'zl_loss': z_logits_loss,
+            'pred_text_hat': pred_text_hat,
+            'pred_z_logits': pred_z_logits,
+            'gt_latent': gt_latent
         }
 
         return data
@@ -161,9 +180,9 @@ class TransDiffusionCombineModel(TransArticulatedBaseModule):
         self.manual_backward(data['loss'])
         optimizer.step()
 
-
-        del data['pred_valid_token_latent']
-        del data['gt_valid_latent']
+        del data['pred_text_hat']
+        del data['pred_z_logits']
+        del data['gt_latent']
 
         self.log_dict(data, on_step=True, on_epoch=True, prog_bar=True)
 
@@ -177,9 +196,22 @@ class TransDiffusionCombineModel(TransArticulatedBaseModule):
         self.eval()
         data = self.step(batch, batch_idx)
 
+        #################### Diffusion Loss BEGIN ####################
+        pred_text_hat = data['pred_text_hat']
+        pred_z_logits = data['pred_z_logits']
+        gt_latent = data['gt_latent']
+        q_z, _KL, _perplexity, _logits = self.z_mini_encoder.forward_with_logits_or_x(tau=0.5, logits=pred_z_logits)
+        condition = {
+            'text': pred_text_hat,
+            'z_hat': q_z,
+        }
+        diff_loss_1, diff_100_loss_1, diff_1000_loss_1, pred_valid_token_latent_1, perturbed_pc_1 =   \
+            self.diffusion.model.diffusion_model_from_latent(gt_latent, cond=condition)
+        #################### Diffusion Loss END ####################
+
         if batch_idx == 0:
             images = []
-            for z in [data['pred_valid_token_latent'], data['gt_valid_latent']]:
+            for z in [pred_valid_token_latent_1, gt_latent]:
 
                 z_batch = self.e_config['z_batch']
                 # import pdb; pdb.set_trace()

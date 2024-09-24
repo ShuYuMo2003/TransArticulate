@@ -47,7 +47,8 @@ if __name__ == '__main__':
 
     # Configure save checkpoint callback
     checkpoint_callback = ModelCheckpoint(
-            every_n_train_steps=config['checkpoint']['freq'],
+            save_top_k=-1,
+            every_n_epochs=config['checkpoint']['freq'],
             dirpath=config['checkpoint']['path'] + '/' + run_name,
             filename="{epoch:04d}-{loss:.5f}",
         )
@@ -63,8 +64,8 @@ if __name__ == '__main__':
                       check_val_every_n_epoch=config['evaluation']['freq_epoch'],
                       default_root_dir=config['default_root_dir'],
                       max_epochs=config['num_epochs'], profiler="simple",
-                      log_every_n_steps=40,
-                      **optional_kw_args )
+                      log_every_n_steps=10,
+                      **optional_kw_args)
 
     Log.info("Start training...")
 

@@ -49,7 +49,8 @@ if __name__ == '__main__':
             num_workers=d_configs['n_workers'], batch_size=d_configs['batch_size'],
             drop_last=True, shuffle=True, pin_memory=True, persistent_workers=True)
 
-    config['evaluation']['sdf_model_path'] = train_dataloader.dataset.get_onet_ckpt_path()
+    config['evaluation']['sdf_model_path'] = train_dataloader.dataset.get_best_sdf_ckpt_path()
+    config['diffusion_model']['pretrained_model_path'] = train_dataloader.dataset.get_best_diffusion_ckpt_path()
 
     # Configure model
     model = TransDiffusionCombineModel(config)
@@ -65,7 +66,6 @@ if __name__ == '__main__':
     optional_kw_args = dict()
     if use_wandb:
         optional_kw_args['logger'] = wandb_logger
-
     trainer = Trainer(devices=config['devices'], accelerator=config["accelerator"],
                       benchmark=True,
                       callbacks=[ModelSummary(max_depth=1), checkpoint_callback, TQDMProgressBar()],
@@ -74,7 +74,6 @@ if __name__ == '__main__':
                       default_root_dir=config['default_root_dir'],
                       max_epochs=config['num_epochs'], profiler="simple",
                       **optional_kw_args )
-
     Log.info("Start training...")
 
     trainer.fit(model=model, train_dataloaders=train_dataloader, val_dataloaders=train_dataloader)

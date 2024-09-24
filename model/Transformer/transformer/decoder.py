@@ -21,9 +21,17 @@ class TransformerDecoder(nn.Module):
         self.vq_dim = self.m_config['vq_expand_dim']
 
         self.diff_config = self.config['diff_config']
-        self.to_z_hat_fc = nn.Linear(self.part_structure['condition'], self.diff_config['diffusion_model_config']['z_hat_dim'])
+
+
+        # self.condition_post_process = nn.Sequential(
+        #     (nn.Linear(self.part_structure['condition'], self.m_config['condition_post_process_hidden_dim'])) +
+        #     (ResnetBlockFC(self.m_config['condition_post_process_hidden_dim'])
+        #      for _ in self.m_config['condition_post_process_deepth'])
+        # )
+        self.to_z_logits_fc = nn.Linear(self.part_structure['condition'], self.diff_config['gsemb_num_embeddings'] * self.diff_config['gsemb_latent_dim'])
         self.to_text_hat_fc = nn.Linear(self.part_structure['condition'], self.diff_config['diffusion_model_config']['text_hat_dim'])
-        self.z_hat_dropout = nn.Dropout(self.config['diffusion_model']['z_hat_dropout'])
+
+        # self.z_hat_dropout = nn.Dropout(self.config['diffusion_model']['z_hat_dropout'])
 
         d_token_latencode = sum(
             [v for k, v in self.part_structure.items() if k != 'condition']
@@ -125,14 +133,15 @@ class TransformerDecoder(nn.Module):
         articulated_info = tokens[:, :-self.dim_condition]
 
         text_hat_condition = self.to_text_hat_fc(conditions)
-        z_hat_condition = self.to_z_hat_fc(self.z_hat_dropout(conditions))
+        z_logits_condition = self.to_z_logits_fc(conditions).view(-1, self.diff_config['gsemb_latent_dim'],
+                                                               self.diff_config['gsemb_num_embeddings'])
 
         result = {
             'is_end_token_logits': end_token_logits,
             'articulated_info': articulated_info,
             'condition': {
-                'text_hat_condition': text_hat_condition,
-                'z_hat_condition': z_hat_condition
+                'text_hat': text_hat_condition,
+                'z_logits': z_logits_condition
             }
         }
         return result, vq_loss

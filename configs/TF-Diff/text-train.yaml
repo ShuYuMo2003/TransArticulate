@@ -55,24 +55,30 @@ transformer_model_paramerter:
   post_encoder_deepth: 4
   post_encoder_dropout: 0.2
 
+  # condition_post_process_hidden_dim: 768
+  # condition_post_process_deepth: 2
+
 diffusion_model:
-  pretrained_model_path: train_root_dir/Diff/checkpoint/09-14-12AM-12-23/epoch=3909-loss=0.00091.ckpt
-  z_hat_dropout: 0.2
+  pretrained_model_path: null
+  # z_hat_dropout: 0.2
 
 optimizer_paramerter:
-  tf_lr: 2
+  tf_lr: 1
   scheduler_factor: 0.0015
   scheduler_warmup: 30
   betas: [0.9, 0.98]
   eps: 1.0e-9
 
-  diff_lr: 1.0e-15
+  diff_lr: 1.0e-6
 
   loss_ratio:
-    et_loss: 2
-    tf_loss: 10
-    vq_loss: 2
-    df_loss: 10
+    et_loss: 1
+    tf_loss: 5
+    th_loss: 5
+    zl_loss: 0.1
+    vq_loss: 1
+    # df_loss: 2
+
 
 evaluation:
   sdf_model_path: null

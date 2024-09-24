@@ -1,4 +1,4 @@
-checkpoint_path: train_root_dir/Transformer_Diffusion/checkpoint/09-12-02PM-37-11/epoch=0725-loss=0.01119.ckpt
+checkpoint_path: train_root_dir/Transformer_Diffusion/checkpoint/09-18-02PM-33-26/epoch=1392-loss=0.14712.ckpt
 
 eval_output_path: log/TF-Diff/
 
@@ -12,4 +12,4 @@ gensdf_latentcode_evaluator:
   max_batch: 262144         # 2 ^ 18
 
 
-input_text: ' '
+input_text: A USB device with a hinged mechanism where the front part can pivot upwards, revealing or concealing the USB connector.

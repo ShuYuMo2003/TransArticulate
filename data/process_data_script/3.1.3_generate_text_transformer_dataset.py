@@ -8,11 +8,9 @@ from rich import print
 from glob import glob
 from pathlib import Path
 from tqdm import tqdm
-from torch.utils.data import DataLoader
 
 sys.path.append('../..')
-from model.SDFAutoEncoder.dataloader import GenSDFDataset
-from model.SDFAutoEncoder import SDFAutoEncoder
+from model.Diffusion import Diffusion
 from utils import (to_cuda, tokenize_part_info,
                    generate_special_tokens, HighPrecisionJsonEncoder, str2hash)
 from utils.logging import Log
@@ -23,58 +21,38 @@ start_token = None
 end_token = None
 pad_token = None
 max_count_token = 0
-best_ckpt_path = None
+best_diffusion_ckpt_point = None
 
-def determine_latentcode_encoder():
-    global best_ckpt_path
+def evaluate_latent_codes():
+    diffusion_model = Diffusion.load_from_checkpoint(best_diffusion_ckpt_point)
+    diffusion_model = diffusion_model.to(device)
 
-    # onets_ckpt_paths = glob('../checkpoints/onet/*.ptn')
-    # onets_ckpt_paths.sort(key=lambda x: -float(x.split('/')[-1].split('-')[0]))
+    mini_z_encoder = diffusion_model.z_mini_encoder
+    mini_text_encoder = diffusion_model.text_mini_encoder
 
-    # best_ckpt_path = onets_ckpt_paths[0]
-
-    Log.info('Using best ckpt: %s', best_ckpt_path)
-    gensdf = SDFAutoEncoder.load_from_checkpoint(best_ckpt_path)
-    return gensdf
-
-def evaluate_latent_codes(gensdf):
-    dataloader = DataLoader(
-            GenSDFDataset(
-                    dataset_dir=Path('../datasets'), train=True,
-                    samples_per_mesh=16000, pc_size=4096,
-                    uniform_sample_ratio=0.3
-                ),
-            batch_size=28, num_workers=12, pin_memory=True, persistent_workers=True
-        )
-
-    gensdf.eval()
-    gensdf = gensdf.to(device)
+    diffusion_dataset_path = Path('../datasets/2.1_text_n_latentcode')
 
     path_to_latent = {}
-    for batch, batched_data in tqdm(enumerate(dataloader),
-                                    desc=f'Evaluating Latent Code', total=len(dataloader)):
-        x = to_cuda(batched_data)
 
-        xyz = x['xyz'] # (B, N, 3)
-        gt = x['gt_sdf'] # (B, N)
-        pc = x['point_cloud'] # (B, 1024, 3)
+    for npz in tqdm(diffusion_dataset_path.glob('*.npz'), desc='Processing NPZ(s)'):
+        data = np.load(str(npz), allow_pickle=True)
+        text = data['text'].astype(np.float32)
+        latent_code = data['latent_code'].astype(np.float32)
+        bbox = data['bounding_box'].astype(np.float32)
 
-        with torch.no_grad():
-            plane_features = gensdf.encoder.get_plane_features(pc)
-            original_features = torch.cat(plane_features, dim=1)
-            out = gensdf.vae_model(original_features) # out = [self.decode(z), input, mu, log_var, z]
+        latent_code = torch.from_numpy(latent_code).to(device).unsqueeze(0)
+        text = torch.from_numpy(text).to(device).unsqueeze(0)
 
-        z = out[2]
+        _, _, _, z_logits = mini_z_encoder(latent_code, 1)
+        _, text_hat = mini_text_encoder(text)
 
-        for batch in range(z.shape[0]):
-            latent = z[batch, ...]
-            latent_numpy = latent.detach().cpu().numpy()
-            path = x['filename'][batch]
-            path = Path(path).stem.replace('.sdf', '') + ".ply"
-            path_to_latent[path] = latent_numpy
-            # Log.info(f"Latent code for {path} is {latent_numpy.shape}")
+        filename = npz.stem + '.ply'
+        path_to_latent[filename] = {
+            'z_logits': z_logits.squeeze(0).detach().cpu().numpy().tolist(),
+            'latent': latent_code.squeeze(0).detach().cpu().numpy().tolist(),
+            'text_hat': text_hat.squeeze(0).detach().cpu().numpy().tolist()
+        }
 
-    Log.info('Latent code evaluation done. count = %s', len(path_to_latent))
     return path_to_latent
 
 def process(shape_info_path:Path, transformer_dataset_path:Path, encoded_text_paths:list[Path], path_to_latent:dict):
@@ -89,20 +67,20 @@ def process(shape_info_path:Path, transformer_dataset_path:Path, encoded_text_pa
     for part_info in shape_info['part']:
         # Add the latent code
         mesh_file_name = part_info['mesh']
-        latent = path_to_latent.get(mesh_file_name)
-        if latent is None:
+        packed_info = path_to_latent.get(mesh_file_name)
+        if packed_info is None:
             return f"[Error] Latent code not found for {mesh_file_name}"
-        part_info['latent_code'] = latent.tolist()
+        part_info['latent_code'] = packed_info['latent']
 
         token = tokenize_part_info(part_info)
 
         new_parts_info.append({
                 'token': token,
                 'name': part_info['name'],
+                'packed_info': packed_info,
                 'dfn_fa': part_info['dfn_fa'],
                 'dfn': part_info['dfn'],
             })
-
 
     start_token = generate_special_tokens(len(new_parts_info[-1]['token']),
                                           str2hash('This is start token') & ((1 << 10) - 1))
@@ -134,7 +112,7 @@ def process(shape_info_path:Path, transformer_dataset_path:Path, encoded_text_pa
                 inferenced_token.append(node['child'][0])
                 node['child'].pop(0)
             else:
-                inferenced_token.append({'token': end_token, 'dfn': -1, 'dfn_fa' : -1})
+                inferenced_token.append({'token': end_token, 'dfn': -1, 'dfn_fa' : -1, 'packed_info': packed_info, 'name': 'end'})
 
         datasets.append((copy.deepcopy(exist_node), copy.deepcopy(inferenced_token)))
 
@@ -180,14 +158,14 @@ def process(shape_info_path:Path, transformer_dataset_path:Path, encoded_text_pa
     return f"[Success] Processed {shape_info_path} part count = {len(datasets)}"
 
 if __name__ == '__main__':
-    best_ckpt_path = '/root/shared-storage/epoch=0802-loss=0.00377.ckpt'
+    best_diffusion_ckpt_point = '/root/workspace/crc61cnhri0c7384uggg/TransArticulate/train_root_dir/Diff/checkpoint/09-23-11PM-09-22/epoch=7999-loss=0.02094.ckpt'
+
     transformer_dataset_path = Path('../datasets/4_transformer_dataset')
     shutil.rmtree(transformer_dataset_path, ignore_errors=True)
     transformer_dataset_path.mkdir(exist_ok=True)
 
     shape_info_paths = list(map(Path, glob('../datasets/1_preprocessed_info/*.json')))
-    gensdf = determine_latentcode_encoder()
-    path_to_latent = evaluate_latent_codes(gensdf)
+    path_to_latent = evaluate_latent_codes()
 
     encoded_text_path = Path('../datasets/3_encoded_text_condition')
     encoded_text_paths = list(map(Path, glob((encoded_text_path / '*').as_posix())))
@@ -202,13 +180,18 @@ if __name__ == '__main__':
         else:
             Log.info("%s: %s", shape_info_path.as_posix(), status)
 
+
+    diffusion_dataset_path = Path('../datasets/2.1_text_n_latentcode')
+    diffusion_dataset_meta = json.loads((diffusion_dataset_path / 'meta.json').read_text())
+
     with open(transformer_dataset_path / 'meta.json', 'w') as f:
         json.dump({
             'start_token': start_token,
             'end_token': end_token,
             'pad_token': pad_token,
             'max_count_token': max_count_token,
-            'best_ckpt_path': best_ckpt_path.replace('../', ''),
+            'best_diffusion_ckpt_path': best_diffusion_ckpt_point,
+            'best_sdf_ckpt_path': diffusion_dataset_meta['ckpt']
         }, f, cls=HighPrecisionJsonEncoder, indent=2)
 
     Log.critical('Failed count: %s', len(failed))
