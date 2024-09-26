@@ -85,7 +85,7 @@ def calcuate_dfn(parts, cur_id):
         calcuate_dfn(parts, c['raw_id'])
 
 
-def process(shape_path:Path, output_info_path:Path, output_mesh_path:Path, needed_categories:list[str]):
+def process(shape_path:Path, output_info_path:Path, output_mesh_path:Path, needed_categories:list[str], category_count_limit, category_count):
 
     start_time      = time.time()
     raw_meta_path   = Path(shape_path) / 'meta.json'
@@ -99,6 +99,10 @@ def process(shape_path:Path, output_info_path:Path, output_mesh_path:Path, neede
 
     if catecory_name not in needed_categories and '*' not in needed_categories:
         return f"[Skip] {catecory_name} is not in needed categories.", shape_path
+
+    if category_count_limit.get(catecory_name) is not None  \
+       and category_count[catecory_name] > category_count_limit[catecory_name]:
+        return f"[Skip] {catecory_name} is over the limit.", shape_path
 
     print('Processing:', shape_path)
 
@@ -178,12 +182,26 @@ if __name__ == '__main__':
     output_mesh_path    = Path('../datasets/1_preprocessed_mesh')
     train_split_ratio   = 0.9
     needed_categories   = [
+            'Bottle',
+            'Box',
+            'Bucket',
+            'Dishwasher',
+            'Display',
+            'Window',
+            'Eyeglasses',
+            'Knife',
+            'Laptop',
+            'Oven',
             'USB',
-            'Chair',
-            'Door',
+            'Scissors',
+            'Refrigerator',
+            'Safe',
             'StorageFurniture',
-            'Toilet',
+            'Toilet'
         ]
+    category_count_limit = {
+        'StorageFurniture': 50
+    }
     meta_info    = Path('../datasets/meta.json') # Save Split.
 
     shutil.rmtree(output_info_path, ignore_errors=True)
@@ -194,14 +212,17 @@ if __name__ == '__main__':
 
     failed_shape_path = {}
     success_shape_path = {}
+    category_count = {k : 0 for k in needed_categories}
 
     for shape_path in tqdm(raw_dataset_paths):
 
-        status = process(Path(shape_path), output_info_path, output_mesh_path, needed_categories)
+        status = process(Path(shape_path), output_info_path, output_mesh_path, needed_categories, category_count_limit, category_count)
         if 'Error' in status[0]:
             failed_shape_path[status[1]] =  status[0]
         elif 'Done' in status[0]:
             success_shape_path[status[1]] =  status[0]
+            category = status[1].split('_')[0]
+            category_count[category] += 1
 
         if 'Skip' not in status[0]:
             print(status)
@@ -216,6 +237,7 @@ if __name__ == '__main__':
     print('Failed shape path:', failed_shape_path)
     print('# Failed shape:', len(failed_shape_path))
     print('# Success shape:', len(success_shape_path))
+    print('Done category count: ', category_count)
 
     with open(meta_info, 'w') as f:
         json.dump({"1_extract_from_raw_dataset": {
@@ -230,5 +252,6 @@ if __name__ == '__main__':
             'failed_shape_count': len(failed_shape_path),
             'failed_ratio': len(failed_shape_path) / (len(failed_shape_path) + len(success_shape_path)),
             'failed_shape_path':  failed_shape_path,
-            'success_shape_path': success_shape_path
+            'success_shape_path': success_shape_path,
+            'category_count': category_count
         }}, f, indent=2)

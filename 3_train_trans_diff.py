@@ -53,10 +53,16 @@ if __name__ == '__main__':
     config['diffusion_model']['pretrained_model_path'] = train_dataloader.dataset.get_best_diffusion_ckpt_path()
 
     # Configure model
-    model = TransDiffusionCombineModel(config)
+    if config['base_on_model'] is not None:
+        Log.info('Using pretrained model: %s', config['base_on_model'])
+        model = TransDiffusionCombineModel.load_from_checkpoint(config['base_on_model'])
+    else:
+        Log.info('not found `base_on_model`, train new model.')
+        model = TransDiffusionCombineModel(config)
 
     # Configure save checkpoint callback
     checkpoint_callback = ModelCheckpoint(
+            save_top_k=-1,
             every_n_train_steps=config['checkpoint']['freq'],
             dirpath=config['checkpoint']['path'] + '/' + run_name,
             filename="{epoch:04d}-{loss:.5f}",

@@ -1,10 +1,8 @@
-checkpoint_path: train_root_dir/Transformer_Diffusion/checkpoint/09-18-02PM-33-26/epoch=1392-loss=0.14712.ckpt
+checkpoint_path: train_root_dir/Transformer_Diffusion/checkpoint/09-24-11PM-46-52/epoch=1401-loss=0.01127.ckpt
 
 eval_output_path: log/TF-Diff/
 
 t5_max_sentence_length: 128
-
-equal_part_threshold: 0.2
 
 gensdf_latentcode_evaluator:
   gensdf_model_path: null
@@ -12,4 +10,7 @@ gensdf_latentcode_evaluator:
   max_batch: 262144         # 2 ^ 18
 
 
-input_text: A USB device with a hinged mechanism where the front part can pivot upwards, revealing or concealing the USB connector.
+input_text: A toilet features a lid on the tank that can be lifted to access the internal mechanisms, and a hinged seat and lid on the bowl that can be lifted upwards for use and cleaning. # features a main vertical cabinet structure with a horizontal shelf that can slide out from the side, allowing access to items stored on the shelf.
+
+# This storage furniture features a main vertical cabinet structure with a horizontal shelf that can slide out from the side, allowing access to items stored on the shelf.
+# A toilet features a lid on the tank that can be lifted to access the internal mechanisms, and a hinged seat and lid on the bowl that can be lifted upwards for use and cleaning.

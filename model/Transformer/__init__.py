@@ -9,6 +9,8 @@ import wandb
 import trimesh
 import yaml
 
+from rich import print
+
 from tqdm import tqdm
 from pathlib import Path
 from torch import nn
@@ -124,7 +126,12 @@ class TransDiffusionCombineModel(TransArticulatedBaseModule):
         non_end_z_logits = packed_info_z_logits[end_token_mask]
 
         text_hat_loss = F.mse_loss(pred_text_hat, non_end_text_hat)
-        z_logits_loss = F.kl_div(pred_z_logits, non_end_z_logits, reduction='batchmean')
+
+        pred_z_probs = F.softmax(pred_z_logits, dim=-1)
+        z_logits_loss = F.kl_div(pred_z_probs.log(), non_end_z_logits, reduction='batchmean', log_target=True)
+
+        # print(pred_z_probs, non_end_z_logits)
+        # print(z_logits_loss)
         #################### For-Diffusion Loss END ####################
 
 
@@ -175,7 +182,7 @@ class TransDiffusionCombineModel(TransArticulatedBaseModule):
         data = self.step(batch, batch_idx)
 
         data['transformer_lr'] = optimizer.param_groups[0]['lr']
-        data['diffusion_lr'] = optimizer.param_groups[1]['lr']
+        # data['diffusion_lr'] = optimizer.param_groups[1]['lr']
 
         self.manual_backward(data['loss'])
         optimizer.step()

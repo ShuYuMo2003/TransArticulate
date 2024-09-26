@@ -156,7 +156,7 @@ class DiffusionNet(nn.Module):
         learned_queries = repeat(self.learned_query, 'd -> b d', b = batch)
 
         tokens = torch.stack((time_embed, data, learned_queries), dim=1)
-        print(z_condition.shape, tokens.shape)
+        # print(z_condition.shape, tokens.shape)
         tokens = torch.cat((z_condition, tokens), dim=1)
 
         tokens = self.causal_transformer(tokens, context=text_hat_expand_condition)

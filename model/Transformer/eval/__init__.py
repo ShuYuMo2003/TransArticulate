@@ -8,6 +8,7 @@ import time
 from pathlib import Path
 
 import torch.utils
+import torch.nn.functional as F
 from tqdm import trange
 # from rich import print
 from transformers import AutoTokenizer, T5EncoderModel
@@ -31,12 +32,15 @@ class Evaluater():
         # self.model.diffusion.model.cond_dropout = False
         self.m_config = self.model.config
 
+        self.z_mini_encoder = self.model.z_mini_encoder
+
         d_configs = self.m_config['dataset_n_dataloader']
 
         self.dataset = TransDiffusionDataset(dataset_path=d_configs['dataset_path'],
                 description_for_each_file=d_configs['description_for_each_file'],
                 cut_off=d_configs['cut_off'],
-                enc_data_fieldname=d_configs['enc_data_fieldname'])
+                enc_data_fieldname=d_configs['enc_data_fieldname'],
+                cache_data=False)
 
         self.eval_output_path = Path(self.eval_config['eval_output_path']) / time.strftime("%m-%d-%I%p-%M-%S")
         os.makedirs(self.eval_output_path, exist_ok=True)
@@ -51,13 +55,13 @@ class Evaluater():
         self.text_encoder.eval()
         self.t5_max_sentence_length = self.eval_config['t5_max_sentence_length']
 
-        self.equal_part_threshold = self.eval_config['equal_part_threshold']
+        # self.equal_part_threshold = self.eval_config['equal_part_threshold']
 
         # self.latentcode_evaluator = LatentCodeEvaluator(Path(self.dataset.get_onet_ckpt_path()), 100000, 16, self.device)
 
         Log.info("Loading model %s", SDFAutoEncoder)
         self.gensdf_config = self.eval_config['gensdf_latentcode_evaluator']
-        self.gensdf_config['gensdf_model_path'] = self.dataset.get_onet_ckpt_path()
+        self.gensdf_config['gensdf_model_path'] = self.dataset.get_best_sdf_ckpt_path()
         self.sdf = SDFAutoEncoder.load_from_checkpoint(self.gensdf_config['gensdf_model_path'])
         self.sdf.eval()
         self.latentcode_evaluator = GenSDFLatentCodeEvaluator(self.sdf, eval_mesh_output_path=self.eval_output_path,
@@ -66,7 +70,6 @@ class Evaluater():
                                                              device=self.device)
 
     def encode_text(self, text):
-
         input_ids = self.tokenizer([text], return_tensors="pt", padding='max_length',
                                     max_length=self.t5_max_sentence_length).input_ids
         input_ids = input_ids.to(self.device)
@@ -93,12 +96,16 @@ class Evaluater():
         }
         round = 1
         Log.info('[2] Generate nodes')
+
         dim_condition = self.m_config['part_structure']['condition']
         dim_latent = self.m_config['part_structure']['latentcode']
+
         while True:
             current_length = exist_node['token'].size(0)
             Log.info('   - Generate nodes round: %s, part count: %s', round, exist_node['token'].size(0))
             with torch.no_grad():
+                # input: (batch, seq, xxx) ---> (batch|seq, xxx) base on `padding_mask`, the dimension of batch & seq are merged.
+                # batch=1 for evaluation.
                 output, vq_loss = self.model.transformer({
                                         'fa': exist_node['fa'].unsqueeze(0),        # batched.
                                         'token': exist_node['token'].unsqueeze(0),
@@ -106,29 +113,27 @@ class Evaluater():
                                     self.generate_non_padding_mask(current_length),
                                     encoded_text) # unbatched.
 
-            all_end = True
-            condition = output['condition']
-
+            # Solve End Token.
             # True -> not end token, False -> end token
             end_token_mask = output['is_end_token_logits'] > 0
-
             Log.info('   - Check end token: %s', output['is_end_token_logits'])
             Log.info('   - Check end token mask: %s', end_token_mask)
-
             if not torch.any(end_token_mask):
                 break
 
-            articulated_info = output['articulated_info'][end_token_mask]
-            min_bbox, max_bbox = articulated_info[:, 0:3], articulated_info[:, 3:6]
-            bbox_ratio = (max_bbox - min_bbox)
-            bbox_ratio = bbox_ratio / bbox_ratio.pow(2).sum(dim=1, keepdim=True).sqrt()
+            condition = output['condition']
+            pred_text_hat = condition['text_hat'][end_token_mask]
+            pred_z_logits = condition['z_logits'][end_token_mask]
+
+            q_z, _KL, _perplexity, _logits = self.z_mini_encoder.forward_with_logits_or_x(tau=0.5, logits=pred_z_logits)
 
             Log.info('   - Generate latent code with condition')
             latent = self.model.diffusion.model.generate_conditional({
-                'z_hat': condition['z_hat_condition'][end_token_mask],
-                'text': condition['text_hat_condition'][end_token_mask],
-                'bbox_ratio': bbox_ratio
+                'z_hat': q_z,
+                'text': pred_text_hat,
             })
+
+            articulated_info = output['articulated_info'][end_token_mask]
 
             result = torch.cat((articulated_info, latent), dim=-1)
 
@@ -160,12 +165,6 @@ class Evaluater():
 
         output_path = (Path(self.eval_output_path) / f'output-{output_round}.gif')
         Log.info('[4] Generate Gif: %s', output_path.as_posix())
-
-        # import pickle
-        # with open('processed_nodes.pkl', 'wb') as f:
-        #     pickle.dump(processed_nodes, f)
-
-        # exit()
 
         generate_gif_toy(processed_nodes[1:], output_path,
                          bar_prompt="   - Generate Frames")

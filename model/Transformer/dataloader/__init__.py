@@ -2,13 +2,14 @@ import torch
 import json
 import random
 import numpy as np
+from tqdm import trange
 import copy
 from glob import glob
 from pathlib import Path
 from torch.utils.data import dataset
 
 class TransDiffusionDataset(dataset.Dataset):
-    def __init__(self, dataset_path: str, description_for_each_file: int, cut_off: int, enc_data_fieldname: str):
+    def __init__(self, dataset_path: str, description_for_each_file: int, cut_off: int, enc_data_fieldname: str, cache_data: bool=True):
         self.dataset_root_path = Path(dataset_path)
 
         assert enc_data_fieldname in ['description', 'image']
@@ -38,6 +39,12 @@ class TransDiffusionDataset(dataset.Dataset):
 
         self.cut_off = cut_off
 
+
+        self.cache = [None] * self.__len__()
+        if cache_data:
+            for i in trange(len(self.cache), desc="caching data"):
+                self.cache[i] = self.__getitem__(i)
+
     def get_best_diffusion_ckpt_path(self):
         return self.meta['best_diffusion_ckpt_path']
 
@@ -48,6 +55,9 @@ class TransDiffusionDataset(dataset.Dataset):
         return len(self.files_path)
 
     def __getitem__(self, index):
+        if self.cache[index] is not None:
+            return self.cache[index]
+
         current_enc_idx, file_path = self.files_path[index]
         data = json.loads(Path(file_path).read_text())
 

@@ -219,7 +219,7 @@ if __name__ == '__main__':
     parser.add_argument('--n_sample_point', type=int, default=400000, help='Number of points for each mesh')
     parser.add_argument('--uniform_sample_ratio', type=float, default=0.5, help='Uniform sample ratio')
     parser.add_argument('--n_point_cloud', type=int, default=100000, help='Number of point cloud')
-    parser.add_argument('--n_process', type=int, default=20, help='Number of process')
+    parser.add_argument('--n_process', type=int, default=10, help='Number of process')
     parser.add_argument('--near_surface_sammple_method', type=str, default='random', help='Sample method for near surface', choices=['poisson_disk', 'random'])
     parser.add_argument('--on_surface_sample_method', type=str,  default='poisson_disk', help='Sample method for on surface', choices=['poisson_disk', 'random'])
 
