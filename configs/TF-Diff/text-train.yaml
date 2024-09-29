@@ -75,7 +75,7 @@ optimizer_paramerter:
 
   loss_ratio:
     et_loss: 1
-    tf_loss: 5
+    tf_loss: 10
     th_loss: 5
     zl_loss: 2
     vq_loss: 1

@@ -6,12 +6,12 @@ wandb:
 default_root_dir: train_root_dir/SDF
 
 dataset_n_dataloader:
-  batch_size: 28
-  n_workers: 16
+  batch_size: 16
+  n_workers: 10
 
   dataset_dir: data/datasets
   samples_per_mesh: 16000
-  pc_size: 2048
+  pc_size: 4096
   uniform_sample_ratio: 0.3
 
 SdfModelSpecs:
@@ -27,7 +27,7 @@ evaluation:
   eval_mesh_output_path: train_root_dir/SDF/tempmesh
   resolution: 256
   count: 20
-  freq_epoch: 10
+  freq_epoch: 1000
   vis_epoch_freq: 5
 
 checkpoint:

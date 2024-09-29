@@ -132,6 +132,6 @@ class SDFAutoEncoder(TransArticulatedBaseModule):
                 screenshots[batch] = screenshot
             image = np.concatenate(screenshots, axis=1)
 
-            self.w_logger.log_image(key="Image", images=[wandb.Image(image)])
+            self.logger.log_image(key="Image", images=[wandb.Image(image)])
 
         return return_dict["loss"]

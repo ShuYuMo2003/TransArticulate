@@ -105,18 +105,17 @@ def generate_obj_pics(_parts_data, percentage, cinema_position):
     for dfn, part in dfn_to_part.items():
         try:
             mesh = part['mesh']
-            min_bound, max_bound = mesh.bounds
-            tg_min_bound, tg_max_bound = part['bounding_box']
+            obbx = part['obbx']
+            C, R, extent = obbx['center'], obbx['R'], obbx['extent']
+            C, R, extent = np.array(C), np.array(R), np.array(extent)
 
-            min_bound, max_bound = np.array(min_bound), np.array(max_bound)
-            tg_min_bound, tg_max_bound = np.array(tg_min_bound), np.array(tg_max_bound)
+            v = mesh.vertices
 
-            max_bound[max_bound - min_bound < 1e-5] += 0.01
-            tg_max_bound[tg_max_bound - tg_min_bound < 1e-5] += 0.01
+            # import pdb; pdb.set_trace()
 
-            mesh.vertices = tg_min_bound + (tg_max_bound - tg_min_bound) * (
-                (mesh.vertices - min_bound) / (max_bound - min_bound)
-            )
+            v = C + (R @ (v * extent).T).T
+
+            mesh.vertices = v
 
             mesh.vertices = np.concatenate((
                 mesh.vertices,

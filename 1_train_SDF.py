@@ -45,15 +45,16 @@ if __name__ == '__main__':
                                         uniform_sample_ratio=d_configs['uniform_sample_ratio']),
                 num_workers=d_configs['n_workers'], batch_size=d_configs['batch_size'],
                 drop_last=True, shuffle=is_train, pin_memory=True, persistent_workers=True)
-            for is_train in [True, False]
+            for is_train in [None, None] # do not split validation or train dataset.
     ]
 
 
     # Configure save checkpoint callback
     checkpoint_callback = ModelCheckpoint(
+            save_top_k=-1,
             every_n_train_steps=config['checkpoint']['freq'],
             dirpath=config['checkpoint']['path'] + '/' + run_name,
-            filename="{epoch:04d}-{loss:.5f}",
+            filename="sdf_{epoch:04d}-{loss:.5f}",
         )
 
     # Configure trainer

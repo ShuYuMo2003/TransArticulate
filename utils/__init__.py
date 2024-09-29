@@ -17,7 +17,7 @@ def camel_to_snake(name):
     s1 = re.sub('(.)([A-Z][a-z]+)', r'\1 \2', name)
     return re.sub('([a-z0-9])([A-Z])', r'\1 \2', s1).lower()
 
-def generate_gif_toy(tokens, shape_output_path: Path, bar_prompt:str, n_frame: int=100,
+def generate_gif_toy(tokens, shape_output_path: Path, bar_prompt:str='', n_frame: int=100,
                     n_timepoint: int=50, fps:int=40):
 
     def speed_control_curve(n_frame, n_timepoint, timepoint):
@@ -48,20 +48,28 @@ def generate_gif_toy(tokens, shape_output_path: Path, bar_prompt:str, n_frame: i
 
 def untokenize_part_info(token):
     part_info = {
-        'bounding_box': [token[0:3], token[3:6]],
-        'joint_data_origin': token[6:9],
-        'joint_data_direction': token[9:12],
-        'limit': token[12:16],
-        'latent_code': token[16:],
+        'obbx': {
+            'center': token[0:3],
+            'R': [token[3:6], token[6:9], token[9:12]],
+            'extent': token[12:15]
+        },
+        'joint_data_origin': token[15:18],
+        'joint_data_direction': token[18:21],
+        'limit': token[21:24],
+        'latent_code': token[24:],
     }
-    assert len(token[16:]) == 768
+    assert len(token[24:]) == 768
     return part_info
 
 def tokenize_part_info(part_info):
     token = []
 
-    bounding_box = part_info['bounding_box']
-    token += bounding_box[0] + bounding_box[1]
+    bounding_box = part_info['obbx']
+    token += bounding_box['center']     \
+           + bounding_box['R'][0]       \
+           + bounding_box['R'][1]       \
+           + bounding_box['R'][2]       \
+           + bounding_box['extent']
 
     joint_data_origin = part_info['joint_data_origin']
     token += joint_data_origin

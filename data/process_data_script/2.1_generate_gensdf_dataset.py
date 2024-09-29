@@ -37,12 +37,12 @@ def ply_to_obj(ply_file, obj_file):
         file_type='ply'
     )
     # print('1# bounding box: ', mesh.bounds)
-    (min_bound, max_bound) = mesh.bounds
-    center = (max_bound + min_bound) / 2
-    mesh.vertices -= center
+    # (min_bound, max_bound) = mesh.bounds
+    # center = (max_bound + min_bound) / 2
+    # mesh.vertices -= center
 
-    scale = (max_bound - min_bound).max() / (2 - 0.005)
-    mesh.vertices /= scale # fit into [-1, 1]
+    # scale = (max_bound - min_bound).max() / (2 - 0.005)
+    # mesh.vertices /= scale # fit into [-1, 1]
 
     # print('2# bounding box: ', mesh.bounds)
 
@@ -62,13 +62,13 @@ def obj_to_wtobj_by_pcu_vf(obj_file):
     v, f = pcu.load_mesh_vf(obj_file)
 
 
-    # The resolution parameter controls the density of the output mesh
-    # It is linearly proportional to the number of faces in the output
-    # mesh. A higher value corresponds to a denser mesh.
-    resolution = 19_000
-    vw, fw = pcu.make_mesh_watertight(v, f, resolution)
+    # # The resolution parameter controls the density of the output mesh
+    # # It is linearly proportional to the number of faces in the output
+    # # mesh. A higher value corresponds to a denser mesh.
+    # resolution = 19_000
+    # vw, fw = pcu.make_mesh_watertight(v, f, resolution)
 
-    return vw, fw
+    return v, f
 
 # @see: https://www.fwilliams.info/point-cloud-utils/sections/mesh_sdf/
 def wtobj_to_sdf_by_pcu(wt_obj_file, sdf_file, sample_method=[str, str]):
@@ -107,9 +107,9 @@ def wtobj_to_sdf_by_pcu(wt_obj_file, sdf_file, sample_method=[str, str]):
     n_point_on_surface = n_point_cloud
 
     if sample_method[1] == 'poisson_disk':
-        fid, bc = pcu.sample_mesh_poisson_disk(_v, _f, num_samples=n_point_near_surface)
+        fid, bc = pcu.sample_mesh_poisson_disk(_v, _f, num_samples=n_point_on_surface)
     elif sample_method[1] == 'random':
-        fid, bc = pcu.sample_mesh_random(_v, _f, num_samples=n_point_near_surface)
+        fid, bc = pcu.sample_mesh_random(_v, _f, num_samples=n_point_on_surface)
     else:
         raise ValueError(f'Invalid method {sample_method[1]}')
 
