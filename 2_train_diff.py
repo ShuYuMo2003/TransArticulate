@@ -50,7 +50,7 @@ if __name__ == '__main__':
             save_top_k=-1,
             every_n_epochs=config['checkpoint']['freq'],
             dirpath=config['checkpoint']['path'] + '/' + run_name,
-            filename="{epoch:04d}-{loss:.5f}",
+            filename="diffusion-{epoch:04d}-{loss:.5f}",
         )
 
     # Configure trainer

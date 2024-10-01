@@ -2,6 +2,7 @@ import json
 import random
 from lightning.pytorch.utilities.types import EVAL_DATALOADERS
 import numpy as np
+from rich import print
 
 from utils.logging import Log
 from tqdm import tqdm
@@ -18,21 +19,26 @@ class GenSDFDataset(Dataset):
 
         dataset_meta = json.loads((dataset_dir / 'meta.json').read_text())
 
-        if train is None:
-            self.current_dataset_keyname = dataset_meta['1_extract_from_raw_dataset']['train_split'] \
-                                         + dataset_meta['1_extract_from_raw_dataset']['test_split']
-        else:
-            if train: self.current_dataset_keyname = dataset_meta['1_extract_from_raw_dataset']['train_split']
-            else:     self.current_dataset_keyname = dataset_meta['1_extract_from_raw_dataset']['test_split']
+        assert train is None, "Only suppert train is None."
+
+        # if train is None:
+        #     self.current_dataset_keyname = dataset_meta['1_extract_from_raw_dataset']['train_split'] \
+        #                                  + dataset_meta['1_extract_from_raw_dataset']['test_split']
+        # else:
+        #     if train: self.current_dataset_keyname = dataset_meta['1_extract_from_raw_dataset']['train_split']
+        #     else:     self.current_dataset_keyname = dataset_meta['1_extract_from_raw_dataset']['test_split']
 
         self.dataset_dir = list(dataset_dir.glob('2_gensdf_dataset/*.npz'))
-        filtered_dataset_dir = []
-        for _file in self.dataset_dir:
-            file = _file.stem
-            key_name = '_'.join(file.split('_')[:2])
-            if key_name in self.current_dataset_keyname:
-                filtered_dataset_dir.append(_file)
-        self.dataset_dir = filtered_dataset_dir
+
+        print("Len = ", len(self.dataset_dir))
+
+        # filtered_dataset_dir = []
+        # for _file in self.dataset_dir:
+        #     file = _file.stem
+        #     key_name = '_'.join(file.split('_')[:2])
+        #     if key_name in self.current_dataset_keyname:
+        #         filtered_dataset_dir.append(_file)
+        # self.dataset_dir = filtered_dataset_dir
 
         random.shuffle(self.dataset_dir)
 

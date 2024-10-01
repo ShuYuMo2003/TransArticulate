@@ -47,7 +47,7 @@ class Diffusion(TransArticulatedBaseModule):
                                 lr=self.config['lr'])
 
     def step(self, batch, batch_idx):
-        text, z, bbox_ratio = batch
+        text, z = batch
 
         # 高温度：样本接近均匀分布，元素之间的差异较小。
         # 低温度：样本更接近于离散的 one-hot 向量。
@@ -66,6 +66,7 @@ class Diffusion(TransArticulatedBaseModule):
             })
 
         z_KL = self.config['z_KL_ratio'] * z_KL
+
         loss = vq_loss + diff_loss_1 + z_KL
 
         data = {

@@ -16,8 +16,8 @@ class DiffusionDataset(Dataset):
         for idx in trange(len(self.text_latentcode_dir), desc="Loading and cache data."):
             data = np.load(self.text_latentcode_dir[idx], allow_pickle=True)
             self.data[idx] = data['text'].astype(np.float32),           \
-                             data['latent_code'].astype(np.float32),    \
-                             data['bounding_box'].astype(np.float32)
+                             data['latent_code'].astype(np.float32) # ,    \
+                            #  data['bounding_box'].astype(np.float32)
 
     def get_gensdf_ckpt_path(self):
         return self.meta['ckpt']

@@ -1,3 +1,5 @@
+pretrained_model: train_root_dir/SDF/checkpoint/09-30-03PM-51-18/sdf_epoch=0512-loss=0.01376.ckpt
+
 seed: 123456790
 wandb:
   project: SDF
@@ -6,7 +8,7 @@ wandb:
 default_root_dir: train_root_dir/SDF
 
 dataset_n_dataloader:
-  batch_size: 16
+  batch_size: 24
   n_workers: 10
 
   dataset_dir: data/datasets

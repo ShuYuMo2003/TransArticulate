@@ -234,6 +234,24 @@ if __name__ == '__main__':
     all_ply_files = list(filter(lambda x : x.as_posix()[-3:] == 'ply',
                             Path('../datasets/1_preprocessed_mesh/').iterdir()))
 
+    first_stem_names = list(map(lambda x : x.stem, all_ply_files))
+
+    ex_all_ply_files = list(filter(lambda x : x.as_posix()[-3:] == 'ply' and x.stem not in first_stem_names,
+                            Path('../datasets/1_preprocessed_mesh/ex').iterdir()))
+
+    all_ply_files.sort(key=lambda x : str(x))
+    ex_all_ply_files.sort(key=lambda x : str(x))
+
+    # print(all_ply_files)
+    # print(ex_all_ply_files)
+    # exit()
+
+    all_ply_files = all_ply_files + ex_all_ply_files
+
+    print("all_ply_files: ", len(all_ply_files))
+    print("ex_all_ply_files: ", len(ex_all_ply_files))
+    print("expand ratio: ", len(ex_all_ply_files) / (len(all_ply_files) + len(ex_all_ply_files)))
+
     # all_ply_files = all_ply_files[:5]
     # all_ply_files = [Path('../dataset/1_preprocessed_mesh/USB_64_0.ply')]
 

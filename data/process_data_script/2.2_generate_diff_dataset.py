@@ -15,7 +15,7 @@ from model.SDFAutoEncoder.dataloader import GenSDFDataset
 from utils.logging import Log
 from utils import to_cuda, camel_to_snake
 
-best_ckpt_path = '/root/shared-storage/epoch=0802-loss=0.00377.ckpt'
+best_ckpt_path = '/root/workspace/crc61cnhri0c7384uggg/TransArticulate/train_root_dir/SDF/checkpoint/10-01-12PM-06-51/sdf_epoch=1410-loss=0.00700.ckpt'
 
 def determine_latentcode_encoder(best_ckpt_path):
     Log.info('Using best ckpt: %s', best_ckpt_path)
@@ -32,6 +32,7 @@ def evaluate_latent_codes(gensdf):
             batch_size=28, num_workers=12, pin_memory=True, persistent_workers=True
         )
 
+    print("Length =", len(dataloader.dataset))
     gensdf.eval()
     gensdf = gensdf.to(device)
 
@@ -111,16 +112,19 @@ if __name__ == '__main__':
         for part_info in shape_json['part']:
             texts.add(f"{shape_name}, {part_info['name']}")
 
-            # Calculate bounding box ratio
-            min_bbox, max_bbox = part_info['bounding_box']
-            min_bbox, max_bbox = np.array(min_bbox), np.array(max_bbox)
-            ratios = (max_bbox - min_bbox)
-            ratios = ratios / np.linalg.norm(ratios)
-            path_to_bbox_ratio[part_info['mesh']] = ratios
+    ex_mesh_info_path = Path('../datasets/1_preprocessed_info/ex')
+
+    for ex_shape_json_path in list(ex_mesh_info_path.glob('*.json')):
+        shape_json = json.loads(ex_shape_json_path.read_text())
+        shape_name = camel_to_snake(shape_json['meta']['model_cat'])
+        for part in shape_json['part']:
+            texts.add(f"{shape_name}, {part['name']}")
+
+    print(texts)
 
     text_to_e_text = encode_texts(texts, t5_cache_path, t5_model_name, t5_batch_size, device, t5_max_sentence_length)
 
-    failed = []
+    failed  = []
     success = []
     for shape_json_path in list(mesh_info_path.glob('*.json')):
         shape_json = json.loads(shape_json_path.read_text())
@@ -131,14 +135,23 @@ if __name__ == '__main__':
                 Log.warning(f"Latent code for {mesh_name} not found")
                 failed.append(mesh_name)
                 continue
-            if path_to_bbox_ratio.get(part_info['mesh']) is None:
-                Log.warning(f"Bounding_box for {mesh_name} not found")
-                failed.append(mesh_name)
-                continue
-            # Log.info(f"Saving {mesh_name} latent code and text")
             np.savez(output_path / f"{mesh_name}.npz",
                      latent_code=path_to_latent[part_info['mesh']],
-                     bounding_box=path_to_bbox_ratio[part_info['mesh']],
+                     text=text_to_e_text[f"{shape_name}, {part_info['name']}"])
+            success.append(mesh_name)
+
+    for ex_shape_json_path in list(ex_mesh_info_path.glob('*.json')):
+        shape_json = json.loads(ex_shape_json_path.read_text())
+        shape_name = camel_to_snake(shape_json['meta']['model_cat'])
+        for part_info in shape_json['part']:
+            mesh_name = Path(part_info['mesh']).stem
+            if mesh_name in success: continue
+            if path_to_latent.get(part_info['mesh']) is None:
+                Log.warning(f"Latent code for {mesh_name} not found")
+                failed.append(mesh_name)
+                continue
+            np.savez(output_path / f"{mesh_name}.npz",
+                     latent_code=path_to_latent[part_info['mesh']],
                      text=text_to_e_text[f"{shape_name}, {part_info['name']}"])
             success.append(mesh_name)
 
@@ -149,7 +162,3 @@ if __name__ == '__main__':
     Log.info('failed count = %s', len(failed))
     Log.info('success count = %s', len(success))
     Log.info('Done')
-
-
-
-
