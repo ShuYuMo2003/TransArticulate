@@ -20,22 +20,15 @@ prompt =  \
 Please focus on its movable parts and articulation characteristics, and describe the possible motion characteristics of each part.
 In the given image, there are different colored parts that can move relative to each other.
 In your description, you should ignore the color, texture, and other non-structural features.
-Provide a brief one-sentence description.
-Here are some examples:
----
-input: <image of a USB>
-description: A USB device features a rectangular shape with a swivel mechanism that allows a cover to rotate and reveal or protect the USB connector.
---
-input: <image of a USB>
-description: A USB device features a rectangular shape with a removable cap that detaches to expose the USB connector.
----
 
-For more complex shapes, you can describe the motion characteristics of the main part in detail with more sentences.
 '''
 
-
-description_output_path = '../dataset/4_screenshot_description/'
-Path(description_output_path).mkdir(exist_ok=True)
+length_prompt = [
+    '''You can describe the motion characteristics in detail with more sentences.''',
+    '''You should describe the motion characteristics with a few sentences.''',
+    '''You should give me only one sentence description.''',
+    '''You should give me a very short sentence containing only kind of information.''',
+]
 
 def camel_to_snake(name):
     # StorageFurniture -> storage furniture
@@ -44,15 +37,9 @@ def camel_to_snake(name):
 
 def compress_figure(figure_path: str):
     return figure_path
-    pass
 
-
-def generate_description(figure_path, output_txt_path, category):
+def generate_description(figure_path, prompt, output_txt_path):
     print('describing fig:', figure_path, 'with', category, 'writing to', output_txt_path)
-
-    if os.path.exists(output_txt_path) and "Message too long" in Path(output_txt_path).read_text():
-        os.remove(output_txt_path)
-        print('[Delete]: ', output_txt_path)
 
     if os.path.exists(output_txt_path):
         print('description for', figure_path, 'already exists.')
@@ -64,7 +51,7 @@ def generate_description(figure_path, output_txt_path, category):
             description = ''
             for chunk in client.send_message(
                                 bot_type,
-                                prompt.replace('CATE', category),
+                                prompt,
                                 file_path=[figure_path]):
                 print(chunk["response"], end="", flush=True)
                 description += chunk["response"]
@@ -82,13 +69,21 @@ def generate_description(figure_path, output_txt_path, category):
     with open(output_txt_path, 'w') as f:
         f.write(description)
 
+def wapper_generate_description(screenshot_path, current_output_path, category):
+    current_output_path.mkdir(exist_ok=True, parents=True)
+    for idx, post_prompt in enumerate(length_prompt):
+        current_prompt = prompt.replace('CATE', category) + post_prompt
+        output_path = current_output_path / f'{idx}.txt'
+        generate_description(screenshot_path, current_prompt, output_path)
+
 if __name__ == '__main__':
-    screenshot_paths = glob('../datasets/3_screenshot/*/*.png')
+    screenshot_paths = glob('../datasets/4_screenshot_high_q/*.png')
+    output_path = Path('../datasets/3_text_condition')
+    Path(output_path).mkdir(exist_ok=True, parents=True)
+
     for screenshot_path in tqdm(screenshot_paths):
-        output_path = screenshot_path.replace('3_screenshot', '3_text_condition')   \
-                                     .replace('.png', '.txt')
-        Path(output_path).parent.mkdir(exist_ok=True)
-        shape_name = Path(screenshot_path).parent.name
-        category = shape_name.split('_')[0]
-        category = camel_to_snake(category)
-        generate_description(screenshot_path, output_path, category)
+        file_name = Path(screenshot_path).stem
+        key_name = file_name.split('-')[0]
+        category = camel_to_snake(file_name.split('_')[0])
+        current_output_path = output_path / key_name
+        wapper_generate_description(screenshot_path, current_output_path, category)

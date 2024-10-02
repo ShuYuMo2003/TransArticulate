@@ -42,6 +42,8 @@ if __name__ == '__main__':
                         drop_last=True, shuffle=True, pin_memory=True, persistent_workers=True)
     config['evaluation']['sdf_model_path'] = Path(dataloader.dataset.get_gensdf_ckpt_path())
 
+    print("Len = ", len(dataloader.dataset))
+
     # Set up model
     model = Diffusion(config)
 

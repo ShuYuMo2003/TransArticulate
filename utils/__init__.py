@@ -9,6 +9,13 @@ from .generate_obj_pic import generate_obj_pics
 from tqdm import tqdm
 from pathlib import Path
 
+import random
+
+def generate_random_string(length):
+    characters = 'abcdefghijklmnopqrstuvwxyz' + '0123456789'
+    random_string = ''.join(random.choice(characters) for _ in range(length))
+    return random_string
+
 def str2hash(ss):
     return int(hashlib.md5(ss.encode()).hexdigest(), 16)
 

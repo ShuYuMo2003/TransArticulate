@@ -6,6 +6,7 @@ import json
 import time
 import shutil
 import trimesh
+import imageio
 
 from tqdm import tqdm
 import numpy as np
@@ -13,9 +14,7 @@ from glob import glob
 from pathlib import Path
 from multiprocessing import Pool, cpu_count
 
-current_dir = os.path.dirname(__file__)
-parent_dir = os.path.dirname(current_dir)
-sys.path.append(parent_dir)
+sys.path.append('../..')
 from utils.generate_obj_pic import generate_obj_pics
 
 # def generate_screen_shot(obj_parts):
@@ -74,7 +73,7 @@ if __name__ == '__main__':
 
     output_path.mkdir(exist_ok=True)
 
-    obj_info_paths = glob('../datasets/1_preprocessed_info/*')
+    obj_info_paths = glob('../datasets/1_preprocessed_info/*.json')
     mesh_factory_path = '../datasets/1_preprocessed_mesh'
     obj_infos = [
         json.load(open(path, 'r'))
