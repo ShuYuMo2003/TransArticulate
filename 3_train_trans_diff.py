@@ -42,7 +42,6 @@ if __name__ == '__main__':
     d_configs = config['dataset_n_dataloader']
     train_dataloader = DataLoader(TransDiffusionDataset(
                 dataset_path=d_configs['dataset_path'],
-                description_for_each_file=d_configs['description_for_each_file'],
                 cut_off=d_configs['cut_off'],
                 enc_data_fieldname=d_configs['enc_data_fieldname']
             ),

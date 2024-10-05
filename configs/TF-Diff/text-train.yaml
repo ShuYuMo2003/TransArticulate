@@ -14,7 +14,6 @@ dataset_n_dataloader:
   batch_size: 64
 
   dataset_path: data/datasets/4_transformer_dataset
-  description_for_each_file: 6
   cut_off: -1
   enc_data_fieldname: description
 
@@ -23,7 +22,7 @@ checkpoint:
   freq: 2000
 
 part_structure:
-  bounding_box: 6
+  bounding_box: 15 # 3 + 9 + 3
   joint_data_origin: 3
   joint_data_direction: 3
   limit: 4
@@ -84,9 +83,9 @@ optimizer_paramerter:
 
 evaluation:
   sdf_model_path: null
-  max_batch: 8192  # 2^18
+  max_batch: 131072  # 2^17
   z_batch: 256
   eval_mesh_output_path: train_root_dir/SDF/tempmesh
   resolution: 256
   count: 20
-  freq: 20
+  freq: 2000

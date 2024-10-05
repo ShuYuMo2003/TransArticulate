@@ -38,7 +38,7 @@ def evaluate_latent_codes():
         data = np.load(str(npz), allow_pickle=True)
         text = data['text'].astype(np.float32)
         latent_code = data['latent_code'].astype(np.float32)
-        bbox = data['bounding_box'].astype(np.float32)
+        # bbox = data['bounding_box'].astype(np.float32)
 
         latent_code = torch.from_numpy(latent_code).to(device).unsqueeze(0)
         text = torch.from_numpy(text).to(device).unsqueeze(0)
@@ -158,7 +158,7 @@ def process(shape_info_path:Path, transformer_dataset_path:Path, encoded_text_pa
     return f"[Success] Processed {shape_info_path} part count = {len(datasets)}"
 
 if __name__ == '__main__':
-    best_diffusion_ckpt_point = '/root/workspace/crc61cnhri0c7384uggg/TransArticulate/train_root_dir/Diff/checkpoint/09-23-11PM-09-22/epoch=7999-loss=0.02094.ckpt'
+    best_diffusion_ckpt_point = '/root/workspace/crc61cnhri0c7384uggg/TransArticulate/train_root_dir/Diff/checkpoint/10-01-10PM-55-10/diffusion-epoch=35999-loss=0.05126.ckpt'
 
     transformer_dataset_path = Path('../datasets/4_transformer_dataset')
     shutil.rmtree(transformer_dataset_path, ignore_errors=True)

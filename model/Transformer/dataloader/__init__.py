@@ -9,7 +9,7 @@ from pathlib import Path
 from torch.utils.data import dataset
 
 class TransDiffusionDataset(dataset.Dataset):
-    def __init__(self, dataset_path: str, description_for_each_file: int, cut_off: int, enc_data_fieldname: str, cache_data: bool=True):
+    def __init__(self, dataset_path: str, cut_off: int, enc_data_fieldname: str, cache_data: bool=True):
         self.dataset_root_path = Path(dataset_path)
 
         assert enc_data_fieldname in ['description', 'image']
@@ -23,12 +23,12 @@ class TransDiffusionDataset(dataset.Dataset):
         self.pad_token = torch.tensor(self.meta['pad_token'], dtype=torch.float32)
 
         # get all json files
-        all_json_files = glob(str(self.dataset_root_path / '*.json'))
-        all_json_files = list(filter(lambda x: 'meta.json' not in x, all_json_files))
+        all_json_files = self.dataset_root_path.glob('*.json')
+        all_json_files = list(filter(lambda x: 'meta.json' not in str(x), all_json_files))
         self.files_path = [
-                (desc_idx, file)
-                for desc_idx in range(description_for_each_file)
+                (Path('data') / desc_path, file)
                 for file in all_json_files
+                for desc_path in json.loads(file.read_text())['description']
             ]
 
         random.seed(0)
@@ -58,10 +58,9 @@ class TransDiffusionDataset(dataset.Dataset):
         if self.cache[index] is not None:
             return self.cache[index]
 
-        current_enc_idx, file_path = self.files_path[index]
+        enc_path, file_path = self.files_path[index]
         data = json.loads(Path(file_path).read_text())
 
-        enc_path = 'data/' + data[self.enc_data_fieldname][current_enc_idx]
         enc = np.load(enc_path, allow_pickle=True)
 
         if self.enc_data_fieldname == 'description':

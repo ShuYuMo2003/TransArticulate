@@ -23,7 +23,7 @@ def process_description(t5_cache_path:Path, t5_model_name:str,
         descriptions = []
         for desc_path in all_descriptions_path:
             text = Path(desc_path).read_text()
-            assert "try again" not in text
+            assert "try again" not in text and "unable" not in text and "sorry" not in text
             descriptions.append(text)
 
         shape_name = shape_desc_path.split('/')[-1]
@@ -54,7 +54,7 @@ if __name__ == '__main__':
     t5_model_name = 'google-t5/t5-large'
     t5_device = 'cuda' if torch.cuda.is_available() else 'cpu'
     t5_batch_size = 10
-    t5_max_sentence_length = 128
+    t5_max_sentence_length = 512
 
     description_path = Path('../datasets/3_text_condition')
     description_path.mkdir(exist_ok=True)
