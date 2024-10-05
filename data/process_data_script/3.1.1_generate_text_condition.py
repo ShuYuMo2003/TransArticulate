@@ -1,6 +1,7 @@
 import os
 import re
 import time
+import shutil
 from rich import print
 from glob import glob
 from pathlib import Path
@@ -9,7 +10,7 @@ from tqdm import tqdm
 from poe_api_wrapper import PoeApi
 
 import sys
-sys.path.append('..')
+sys.path.append('../..')
 from sensitive_info import poe_tokens
 
 client = PoeApi(tokens=poe_tokens)
@@ -17,17 +18,17 @@ bot_type = "gpt4_o"
 
 prompt =  \
 '''This is a type of CATE.
-Please focus on its movable parts and articulation characteristics, and describe the possible motion characteristics of each part.
+Please focus on the shape of each part and its articulation characteristics, and describe the possible motion characteristics and shape of each part.
 In the given image, there are different colored parts that can move relative to each other.
 In your description, you should ignore the color, texture, and other non-structural features.
 
 '''
 
 length_prompt = [
-    '''You can describe the motion characteristics in detail with more sentences.''',
-    '''You should describe the motion characteristics with a few sentences.''',
-    '''You should give me only one sentence description.''',
-    '''You should give me a very short sentence containing only kind of information.''',
+    '''You can describe it in detail with more sentences.''',
+    '''You can describe it with fews sentences.''',
+    '''You can describe it with only one sentence.''',
+    '''You can describe it with with only fews words.''',
 ]
 
 def camel_to_snake(name):
@@ -65,25 +66,45 @@ def generate_description(figure_path, prompt, output_txt_path):
             print(e)
             time.sleep(2)
 
-    print('[Write] ', output_txt_path, ": ", description)
-    with open(output_txt_path, 'w') as f:
-        f.write(description)
+    # Error in LLM.
+    if 'unable' in description.lower() or 'sorry' in description.lower():
+        print("[Error] ", output_txt_path, ": ", description)
+        return output_txt_path, description
+    else:
+        print('[Write] ', output_txt_path, ": ", description)
+        with open(output_txt_path, 'w') as f:
+            f.write(description)
 
 def wapper_generate_description(screenshot_path, current_output_path, category):
+    failed = []
     current_output_path.mkdir(exist_ok=True, parents=True)
     for idx, post_prompt in enumerate(length_prompt):
         current_prompt = prompt.replace('CATE', category) + post_prompt
         output_path = current_output_path / f'{idx}.txt'
-        generate_description(screenshot_path, current_prompt, output_path)
+        ret = generate_description(screenshot_path, current_prompt, output_path)
+        if ret is not None:
+            failed.append(ret)
+
+    output_path = current_output_path / f'{len(length_prompt)}.txt'
+    output_path.write_text('This is a type of ' + category + '.')
+
+    return failed
 
 if __name__ == '__main__':
     screenshot_paths = glob('../datasets/4_screenshot_high_q/*.png')
     output_path = Path('../datasets/3_text_condition')
+    shutil.rmtree(output_path, ignore_errors=True)
     Path(output_path).mkdir(exist_ok=True, parents=True)
-
+    failed = []
     for screenshot_path in tqdm(screenshot_paths):
         file_name = Path(screenshot_path).stem
         key_name = file_name.split('-')[0]
         category = camel_to_snake(file_name.split('_')[0])
         current_output_path = output_path / key_name
-        wapper_generate_description(screenshot_path, current_output_path, category)
+        failed_slide = wapper_generate_description(screenshot_path, current_output_path, category)
+        failed.extend(failed_slide)
+
+    print('Failed: ', failed)
+    print('Failed count: ', len(failed))
+    print('Failed rate: ', len(failed) / (len(screenshot_paths) * (len(length_prompt) + 1)))
+    (output_path / "meta.json").write_text('{"failed": ' + str(failed) + '}')
