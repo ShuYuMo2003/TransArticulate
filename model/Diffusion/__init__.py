@@ -17,7 +17,7 @@ from .utils.helpers import ResnetBlockFC
 
 from .mini_encoders import TextConditionEncoder, ZConditionEncoder
 
-from utils.logging import Log
+from utils.mylogging import Log
 
 
 class Diffusion(TransArticulatedBaseModule):

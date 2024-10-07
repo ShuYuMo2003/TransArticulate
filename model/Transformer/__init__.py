@@ -21,7 +21,7 @@ from .transformer.decoder import TransformerDecoder
 from ..Diffusion.diffusion import DiffusionNet
 from ..Diffusion.diffusion_wapper import DiffusionModel
 from ..Diffusion.utils.helpers import ResnetBlockFC
-from utils.logging import Log
+from utils.mylogging import Log
 
 from model.SDFAutoEncoder import SDFAutoEncoder
 from model.Diffusion import Diffusion

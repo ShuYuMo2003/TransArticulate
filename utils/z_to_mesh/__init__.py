@@ -2,7 +2,7 @@ import torch
 from pathlib import Path
 from tqdm import tqdm
 
-from ..logging import Log
+from ..mylogging import Log
 from .gensdf_generator import Generator3DSDF
 
 

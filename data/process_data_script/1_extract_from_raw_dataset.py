@@ -1,7 +1,7 @@
 import json
 import shutil
 import time
-import open3d as o3d
+# import open3d as o3d
 import numpy as np
 import pyvista as pv
 from tqdm import tqdm
@@ -87,31 +87,31 @@ def calcuate_dfn(parts, cur_id):
     for c in child:
         calcuate_dfn(parts, c['raw_id'])
 
-def get_oriented_bounding_box_parameters_and_save(mesh_path, output_path):
-    v, f = pcu.load_mesh_vf(str(mesh_path))
-    resolution = 15_000
-    vw, fw = pcu.make_mesh_watertight(v, f, resolution)
+# def get_oriented_bounding_box_parameters_and_save(mesh_path, output_path):
+#     v, f = pcu.load_mesh_vf(str(mesh_path))
+#     resolution = 15_000
+#     vw, fw = pcu.make_mesh_watertight(v, f, resolution)
 
-    points = np.asarray(vw)
-    pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(points)
-    obb = pcd.get_oriented_bounding_box()
+#     points = np.asarray(vw)
+#     pcd = o3d.geometry.PointCloud()
+#     pcd.points = o3d.utility.Vector3dVector(points)
+#     obb = pcd.get_oriented_bounding_box()
 
-    center = obb.center
-    R = obb.R
-    extent = obb.extent / 2 # for fit into [-1, -1, -1] [1, 1, 1]
+#     center = obb.center
+#     R = obb.R
+#     extent = obb.extent / 2 # for fit into [-1, -1, -1] [1, 1, 1]
 
-    _vw = (np.linalg.inv(R) @ (vw - center).T).T / extent
+#     _vw = (np.linalg.inv(R) @ (vw - center).T).T / extent
 
-    pcu.save_mesh_vf(str(output_path), _vw, fw)
+#     pcu.save_mesh_vf(str(output_path), _vw, fw)
 
-    result =  {
-        'center': center.tolist(),
-        'R': R.tolist(),
-        'extent': extent.tolist()
-    }
+#     result =  {
+#         'center': center.tolist(),
+#         'R': R.tolist(),
+#         'extent': extent.tolist()
+#     }
 
-    return result
+#     return result
 
 
 def process(shape_path:Path, output_info_path:Path, output_mesh_path:Path, needed_categories:list[str], category_count_limit, category_count, is_mobility=True):
@@ -157,17 +157,19 @@ def process(shape_path:Path, output_info_path:Path, output_mesh_path:Path, neede
                          for obj in objs_file]
         merged_mesh_name = f"{catecory_name}_{meta['shape_id']}_{pid}.ply"
         merged_mesh_save_path = output_mesh_path / merged_mesh_name
-        merge_meshs(meshs_paths, merged_mesh_save_path)
+        mesh = merge_meshs(meshs_paths, merged_mesh_save_path)
 
-        obb_merged_mesh_name = merged_mesh_name # f"{catecory_name}_{meta['shape_id']}_{pid}_obb.ply"
-        obb_merged_mesh_save_path = output_mesh_path / obb_merged_mesh_name
+        # obb_merged_mesh_name = merged_mesh_name # f"{catecory_name}_{meta['shape_id']}_{pid}_obb.ply"
+        # obb_merged_mesh_save_path = output_mesh_path / obb_merged_mesh_name
 
-        new_part['mesh'] = obb_merged_mesh_name
+        new_part['mesh'] = merged_mesh_name
 
         # part mesh: mesh.
-        obb_parameters = get_oriented_bounding_box_parameters_and_save(merged_mesh_save_path, obb_merged_mesh_save_path)
+        # obb_parameters = get_oriented_bounding_box_parameters_and_save(merged_mesh_save_path, obb_merged_mesh_save_path)
+        # new_part['obbx'] = obb_parameters
 
-        new_part['obbx'] = obb_parameters
+        bounding_box = mesh.bounds
+        new_part['bbx'] = [bounding_box[0::2], bounding_box[1::2]]
 
         if part['parent'] != -1:
             new_part['joint_data_origin'] = part['jointData']['axis']['origin']

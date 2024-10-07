@@ -9,7 +9,7 @@ from rotary_embedding_torch import RotaryEmbedding
 
 from .utils.model_utils import *
 from .utils.helpers import *
-from utils.logging import Log
+from utils.mylogging import Log
 
 
 class CausalTransformer(nn.Module):

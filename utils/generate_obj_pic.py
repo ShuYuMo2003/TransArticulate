@@ -105,17 +105,30 @@ def generate_obj_pics(_parts_data, percentage, cinema_position):
     for dfn, part in dfn_to_part.items():
         try:
             mesh = part['mesh']
-            obbx = part['obbx']
-            C, R, extent = obbx['center'], obbx['R'], obbx['extent']
-            C, R, extent = np.array(C), np.array(R), np.array(extent)
+            # obbx = part['obbx']
+            # C, R, extent = obbx['center'], obbx['R'], obbx['extent']
+            # C, R, extent = np.array(C), np.array(R), np.array(extent)
 
-            v = mesh.vertices
+            # v = mesh.vertices
 
-            # import pdb; pdb.set_trace()
+            # # import pdb; pdb.set_trace()
 
-            v = C + (R @ (v * extent).T).T
+            # v = C + (R @ (v * extent).T).T
 
-            mesh.vertices = v
+            # mesh.vertices = v
+
+            min_bound, max_bound = mesh.bounds
+            tg_min_bound, tg_max_bound = part['bbx']
+
+            min_bound, max_bound = np.array(min_bound), np.array(max_bound)
+            tg_min_bound, tg_max_bound = np.array(tg_min_bound), np.array(tg_max_bound)
+
+            max_bound[max_bound - min_bound < 1e-5] += 0.01
+            tg_max_bound[tg_max_bound - tg_min_bound < 1e-5] += 0.01
+
+            mesh.vertices = tg_min_bound + (tg_max_bound - tg_min_bound) * (
+                (mesh.vertices - min_bound) / (max_bound - min_bound)
+            )
 
             mesh.vertices = np.concatenate((
                 mesh.vertices,

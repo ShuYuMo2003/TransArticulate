@@ -13,7 +13,7 @@ sys.path.append('../..')
 from model.Diffusion import Diffusion
 from utils import (to_cuda, tokenize_part_info,
                    generate_special_tokens, HighPrecisionJsonEncoder, str2hash)
-from utils.logging import Log
+from utils.mylogging import Log
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 

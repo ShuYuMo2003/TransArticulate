@@ -12,7 +12,7 @@ from .decoder import Decoder
 from .intermediate import VAE
 
 import utils.mesh as MeshUtils
-from utils.logging import Log
+from utils.mylogging import Log
 from utils.base import TransArticulatedBaseModule
 
 

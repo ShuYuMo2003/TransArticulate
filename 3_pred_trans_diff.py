@@ -1,7 +1,7 @@
 from utils import parse_config_from_args
 from lightning.pytorch import seed_everything
 from model.Transformer.eval import Evaluater
-from utils.logging import Log
+from utils.mylogging import Log
 
 from rich import print
 

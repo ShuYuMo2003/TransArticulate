@@ -4,12 +4,12 @@ from lightning.pytorch.utilities.types import EVAL_DATALOADERS
 import numpy as np
 from rich import print
 
-from utils.logging import Log
+from utils.mylogging import Log
 from tqdm import tqdm
 from pathlib import Path
 from torch.utils.data import Dataset, DataLoader
 from utils.base import TransArticulatedBaseDataModule
-from utils.logging import Log
+from utils.mylogging import Log
 
 class GenSDFDataset(Dataset):
     def __init__(self, dataset_dir: Path, train: bool,

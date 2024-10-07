@@ -8,7 +8,7 @@ from pathlib import Path
 
 import sys
 sys.path.append('../..')
-from utils.logging import console, Log
+from utils.mylogging import console, Log
 from utils import generate_random_string
 
 script = Path('../../static/blender_render_script.template.py').read_text()

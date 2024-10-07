@@ -6,7 +6,7 @@ import pyvista as pv
 
 import skimage.measure
 
-from utils.logging import Log
+from utils.mylogging import Log
 
 def generate_mesh_screenshot(mesh: trimesh.Trimesh) -> np.ndarray:
 
