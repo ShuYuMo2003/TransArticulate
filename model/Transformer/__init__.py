@@ -231,7 +231,7 @@ class TransDiffusionCombineModel(TransArticulatedBaseModule):
 
                 evaluation_count = min(self.e_config['count'], batched_recon_latent.shape[0], z.shape[0])
 
-                screenshots = [np.random.randn(256, 256, 3) * 255 for _ in range(evaluation_count)]
+                screenshots = [np.random.randn(768, 1024, 3) * 255 for _ in range(evaluation_count)]
                 if self.e_config['count'] > batched_recon_latent.shape[0]:
                     Log.warning('`evaluation.count` is greater than batch size. Setting to batch size')
 

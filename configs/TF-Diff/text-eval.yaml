@@ -1,4 +1,4 @@
-checkpoint_path: train_root_dir/Transformer_Diffusion/checkpoint/09-24-11PM-46-52/epoch=1401-loss=0.01127.ckpt
+checkpoint_path: /root/workspace/crc61cnhri0c7384uggg/TransArticulate/train_root_dir/Transformer_Diffusion/checkpoint/10-10-08PM-14-20/epoch=3818-loss=0.02268.ckpt
 
 eval_output_path: log/TF-Diff/
 
@@ -9,8 +9,9 @@ gensdf_latentcode_evaluator:
   resolution: 16
   max_batch: 262144         # 2 ^ 18
 
+number_of_trial: 20
 
-input_text: A toilet features a lid on the tank that can be lifted to access the internal mechanisms, and a hinged seat and lid on the bowl that can be lifted upwards for use and cleaning. # features a main vertical cabinet structure with a horizontal shelf that can slide out from the side, allowing access to items stored on the shelf.
+input_text: This is a type of bottle.
 
 # This storage furniture features a main vertical cabinet structure with a horizontal shelf that can slide out from the side, allowing access to items stored on the shelf.
 # A toilet features a lid on the tank that can be lifted to access the internal mechanisms, and a hinged seat and lid on the bowl that can be lifted upwards for use and cleaning.

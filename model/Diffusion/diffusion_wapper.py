@@ -246,6 +246,13 @@ class _DiffusionModel(nn.Module):
 
         return samp
 
+    def generate_conditional_ddim(self, cond):
+        self.eval()
+        with torch.no_grad():
+            samp,_ = self.ddim_sample(dim=self.model.dim, batch_size=cond['text'].shape[0], traj=False, cond=cond)
+
+        return samp
+
     def generate_unconditional(self, num_samples):
         self.eval()
         with torch.no_grad():

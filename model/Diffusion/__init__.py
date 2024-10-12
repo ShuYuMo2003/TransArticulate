@@ -112,9 +112,11 @@ class Diffusion(TransArticulatedBaseModule):
             # batched_recon_latent = return_dict["reconstructed_plane_feature"]
             batched_recon_latent = self.sdf.vae_model.decode(z) # reconstruced triplane features
             evaluation_count = min(self.e_config['count'], batched_recon_latent.shape[0], z.shape[0])
-            screenshots = [np.random.randn(256, 256, 3) * 255 for _ in range(evaluation_count)]
+
+            screenshots = [np.random.randint(0, 255, (768, 1024, 3)) for _ in range(evaluation_count + 1)]
             if self.e_config['count'] > batched_recon_latent.shape[0]:
                 Log.warning('`evaluation.count` is greater than batch size. Setting to batch size')
+
             for batch in tqdm(range(evaluation_count), desc=f'Generating Mesh for Epoch = {batch_idx}'):
                 recon_latent = batched_recon_latent[[batch]] # ([1, D*3, resolution, resolution])
                 output_mesh = (self.e_config['eval_mesh_output_path'] / f'mesh_{self.trainer.current_epoch}_{batch}.ply').as_posix()
@@ -128,9 +130,9 @@ class Diffusion(TransArticulatedBaseModule):
                 except Exception as e:
                     Log.error(f"Error while generating mesh: {e}")
                     if "Surface level must be within volume data range" in str(e):
-                        break
-                    continue
+                        continue
                 screenshots[batch] = screenshot
+            # import pdb; pdb.set_trace();
             image = np.concatenate(screenshots, axis=1)
             images.append(image)
         images = np.concatenate(images, axis=0)

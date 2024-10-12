@@ -1,4 +1,4 @@
-pretrained_model: train_root_dir/SDF/checkpoint/09-30-03PM-51-18/sdf_epoch=0512-loss=0.01376.ckpt
+pretrained_model: null
 
 seed: 123456790
 wandb:

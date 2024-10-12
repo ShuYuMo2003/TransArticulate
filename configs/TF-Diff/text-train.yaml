@@ -1,6 +1,6 @@
-base_on_model: null
+base_on_model: /root/workspace/crc61cnhri0c7384uggg/TransArticulate/train_root_dir/Transformer_Diffusion/checkpoint/10-10-12AM-50-23/epoch=9636-loss=0.02907.ckpt
 
-seed: 123456790
+seed: 1234567890
 wandb:
   use: true
   project: TF_Diffusion
@@ -22,7 +22,7 @@ checkpoint:
   freq: 2000
 
 part_structure:
-  bounding_box: 15 # 3 + 9 + 3
+  bounding_box: 6 # 3 + (3 + 3) # center + length of x, y, z (mean, logvar)
   joint_data_origin: 3
   joint_data_direction: 3
   limit: 4

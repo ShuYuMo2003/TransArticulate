@@ -23,15 +23,8 @@ class TransformerDecoder(nn.Module):
         self.diff_config = self.config['diff_config']
 
 
-        # self.condition_post_process = nn.Sequential(
-        #     (nn.Linear(self.part_structure['condition'], self.m_config['condition_post_process_hidden_dim'])) +
-        #     (ResnetBlockFC(self.m_config['condition_post_process_hidden_dim'])
-        #      for _ in self.m_config['condition_post_process_deepth'])
-        # )
         self.to_z_logits_fc = nn.Linear(self.part_structure['condition'], self.diff_config['gsemb_num_embeddings'] * self.diff_config['gsemb_latent_dim'])
         self.to_text_hat_fc = nn.Linear(self.part_structure['condition'], self.diff_config['diffusion_model_config']['text_hat_dim'])
-
-        # self.z_hat_dropout = nn.Dropout(self.config['diffusion_model']['z_hat_dropout'])
 
         d_token_latencode = sum(
             [v for k, v in self.part_structure.items() if k != 'condition']
@@ -40,6 +33,8 @@ class TransformerDecoder(nn.Module):
         d_token_condition = sum(
             [v for k, v in self.part_structure.items() if k != 'latentcode']
         )
+
+        d_token_condition_with_bbx_dis = d_token_condition + 3
 
         self.dim_latent = self.part_structure['latentcode']
         self.dim_condition = self.part_structure['condition']
@@ -65,7 +60,7 @@ class TransformerDecoder(nn.Module):
                                            d_model=self.d_model,
                                            drop_out=self.m_config['tokenizer_dropout'])
 
-        self.untokenizer    = MLPUnTokenizer(d_token=d_token_condition,
+        self.untokenizer    = MLPUnTokenizer(d_token_condition_with_bbx_dis,
                                              d_hidden=self.m_config['tokenizer_hidden_dim'],
                                              d_model=self.d_model,
                                              drop_out=self.m_config['tokenizer_dropout'])
@@ -130,11 +125,21 @@ class TransformerDecoder(nn.Module):
         tokens = self.untokenizer(tokens)
 
         conditions = tokens[:, -self.dim_condition:]
-        articulated_info = tokens[:, :-self.dim_condition]
+        raw_articulated_info = tokens[:, :-self.dim_condition]
 
         text_hat_condition = self.to_text_hat_fc(conditions)
         z_logits_condition = self.to_z_logits_fc(conditions).view(-1, self.diff_config['gsemb_latent_dim'],
                                                                self.diff_config['gsemb_num_embeddings'])
+
+
+        # process length of xyz of bounding box
+        _b_mu = raw_articulated_info[:, 0:3]
+        _b_logvar = raw_articulated_info[:, 3:6]
+        # Sample base on predicted `mean` and `var`.
+        _b_std = torch.exp(0.5 * _b_logvar)
+        eps = torch.randn_like(_b_std)
+        _b_length_xyz = _b_mu + eps * _b_std
+        articulated_info = torch.cat((_b_length_xyz, raw_articulated_info[:, 6:]), dim=-1)
 
         result = {
             'is_end_token_logits': end_token_logits,

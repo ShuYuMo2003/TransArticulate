@@ -4,12 +4,15 @@ wandb:
   project: Diff
   entity: shuyumo1
 
+
+load_from_pretrained_ckpt: null
+
 default_root_dir: train_root_dir/Diff
 num_epochs: 1000001
 
 dataset_n_dataloader:
   n_workers: 32
-  batch_size: 256
+  batch_size: 64
 
   dataset_path: data/datasets/2.1_text_n_latentcode
 

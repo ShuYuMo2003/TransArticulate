@@ -55,6 +55,23 @@ def evaluate_latent_codes():
 
     return path_to_latent
 
+def transform_bunding_box(shape_info):
+    for part_info in shape_info['part']:
+        bbox = part_info['bbx']
+        part_info['bbx'] = [
+            [
+                (bbox[1][0] + bbox[0][0]) / 2,
+                (bbox[1][1] + bbox[0][1]) / 2,
+                (bbox[1][2] + bbox[0][2]) / 2
+            ],
+            [
+                (bbox[1][0] - bbox[0][0]),
+                (bbox[1][1] - bbox[0][1]),
+                (bbox[1][2] - bbox[0][2])
+            ]
+        ]
+
+
 def process(shape_info_path:Path, transformer_dataset_path:Path, encoded_text_paths:list[Path], path_to_latent:dict):
     global start_token, end_token, pad_token, max_count_token
 
@@ -62,6 +79,8 @@ def process(shape_info_path:Path, transformer_dataset_path:Path, encoded_text_pa
     meta_data = shape_info['meta']
 
     new_parts_info = []
+
+    transform_bunding_box(shape_info)
 
     # Tokenize
     for part_info in shape_info['part']:
@@ -158,7 +177,7 @@ def process(shape_info_path:Path, transformer_dataset_path:Path, encoded_text_pa
     return f"[Success] Processed {shape_info_path} part count = {len(datasets)}"
 
 if __name__ == '__main__':
-    best_diffusion_ckpt_point = '/root/workspace/crc61cnhri0c7384uggg/TransArticulate/train_root_dir/Diff/checkpoint/10-01-10PM-55-10/diffusion-epoch=35999-loss=0.05126.ckpt'
+    best_diffusion_ckpt_point = '/root/workspace/crc61cnhri0c7384uggg/TransArticulate/train_root_dir/Diff/checkpoint/10-08-11AM-40-11/diffusion-epoch=1999-loss=0.04961.ckpt'
 
     transformer_dataset_path = Path('../datasets/4_transformer_dataset')
     shutil.rmtree(transformer_dataset_path, ignore_errors=True)

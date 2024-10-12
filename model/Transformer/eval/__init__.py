@@ -4,6 +4,8 @@ import copy
 import torch
 import json
 import time
+import random
+import pickle
 
 from pathlib import Path
 
@@ -16,7 +18,8 @@ from ..dataloader import TransDiffusionDataset
 from .. import TransDiffusionCombineModel
 from model.SDFAutoEncoder import SDFAutoEncoder
 
-from utils import untokenize_part_info, generate_gif_toy
+from utils import untokenize_part_info, generate_gif_toy, fit_into_bounding_box
+from utils.por_cuda import POR
 import utils.mesh as MeshUtils
 from utils.mylogging import Log
 from utils.z_to_mesh import GenSDFLatentCodeEvaluator
@@ -25,6 +28,7 @@ class Evaluater():
     def __init__(self, eval_config):
         self.eval_config = eval_config
         self.device = eval_config['device']
+        self.number_of_trial = self.eval_config['number_of_trial']
 
         Log.info("Loading model %s", TransDiffusionCombineModel)
         self.model = TransDiffusionCombineModel.load_from_checkpoint(eval_config['checkpoint_path'])
@@ -37,7 +41,6 @@ class Evaluater():
         d_configs = self.m_config['dataset_n_dataloader']
 
         self.dataset = TransDiffusionDataset(dataset_path=d_configs['dataset_path'],
-                description_for_each_file=d_configs['description_for_each_file'],
                 cut_off=d_configs['cut_off'],
                 enc_data_fieldname=d_configs['enc_data_fieldname'],
                 cache_data=False)
@@ -87,7 +90,7 @@ class Evaluater():
         Log.info('    - Difference with end token: %s', difference.item())
         return difference < self.equal_part_threshold
 
-    def inference(self, text, output_round):
+    def inference_from_text(self, text):
         Log.info('[1] Inference text: %s', text)
         encoded_text = self.encode_text(text)
         exist_node = {
@@ -159,81 +162,40 @@ class Evaluater():
 
             z = torch.tensor(part_info['latent_code']).to(self.device)
             part_info['mesh'] = self.latentcode_evaluator.generate_mesh(z.unsqueeze(0))
+            # import pdb; pdb.set_trace()
+            part_info['z'] = z
+            raw_points_sdf = self.latentcode_evaluator.generate_uniform_point_cloud_inside_mesh(z.unsqueeze(0))
+            part_info['points'], part_info['rho'] = fit_into_bounding_box(raw_points_sdf, part_info['bbx'])
 
             processed_node.update(part_info)
             processed_nodes.append(processed_node)
 
-        output_path = (Path(self.eval_output_path) / f'output-{output_round}.gif')
-        Log.info('[4] Generate Gif: %s', output_path.as_posix())
+        # import pdb; pdb.set_trace()
 
-        generate_gif_toy(processed_nodes[1:], output_path,
-                         bar_prompt="   - Generate Frames")
-        Log.info('[5] Done')
+        # We do not want start token.
+        return processed_nodes[1:]
 
-    # def reconstruct(self, text, file_name):
-    #     json_path = Path(self.eval_output_path) / '1_info'
-    #     ply_path = Path(self.eval_output_path) / '2_mesh'
-    #     os.makedirs(json_path, exist_ok=True)
-    #     os.makedirs(ply_path, exist_ok=True)
+    def inference(self, text):
+        number_of_trial = self.number_of_trial
+        list_processed_nodes = [None] * number_of_trial
+        for trial in trange(number_of_trial, desc="Doing trial"):
+            processed_nodes = self.inference_from_text(text)
+            list_processed_nodes[trial] = {
+                'data': processed_nodes,
+                'rate': POR(processed_nodes, n_sample=8192),
+            }
+            rate = list_processed_nodes[trial]['rate']
+            output_gif_path = (Path(self.eval_output_path) / f'output_{trial}_{rate}.gif')
+            Log.info('[4] Generate Gif: %s', output_gif_path.as_posix())
 
-    #     print('[1] Inference text: ', text)
-    #     encoded_text = self.encode_text(text)
-    #     exist_node = {
-    #         'fa': torch.tensor([0]).to(self.device),
-    #         'token': copy.deepcopy(self.start_token).unsqueeze(0).to(self.device),
-    #     }
-    #     all_end = False
-    #     round = 1
-    #     print('[2] Generate nodes')
-    #     while not all_end:
-    #         current_length = exist_node['token'].size(0)
-    #         print('   - Generate nodes round:', round, ', part count:', exist_node['token'].size(0))
-    #         with torch.no_grad():
-    #             output = self.model({
-    #                                     'fa': exist_node['fa'].unsqueeze(0),        # batched.
-    #                                     'token': exist_node['token'].unsqueeze(0),
-    #                                 },
-    #                                 self.generate_non_padding_mask(current_length).unsqueeze(0),
-    #                                 encoded_text)[0] # unbatched.
+            generate_gif_toy(processed_nodes, output_gif_path,
+                            bar_prompt="   - Generate Frames")
+            Log.info('[5] Done')
 
-    #         all_end = True
-    #         for idx, child_node in enumerate(output):
-    #             if self.is_end_token(child_node):
-    #                 continue
-    #             exist_node['fa'] = torch.cat((exist_node['fa'], torch.tensor([idx]).to(self.device)), dim=0)
-    #             exist_node['token'] = torch.cat((exist_node['token'], child_node.unsqueeze(0)), dim=0)
-    #             all_end = False
+        output_json_path = (Path(self.eval_output_path) / f'output.json')
+        output_json_path.write_text('{"text": "' + text + '"}')
 
-    #     processed_nodes = []
-
-    #     print('[3] Generate mesh')
-    #     for idx in trange(exist_node['fa'].shape[0], desc='   - Generate mesh'):
-    #         dfn_fa = exist_node['fa'][idx].item()
-    #         token  = exist_node['token'][idx].cpu().tolist()
-    #         processed_node = {
-    #             'dfn': idx + 1,
-    #             'dfn_fa': dfn_fa + 1,
-    #         }
-    #         if processed_node['dfn'] == 1:
-    #             processed_node['dfn_fa'] = 0
-    #         part_info = untokenize_part_info(token)
-
-    #         z = torch.tensor(part_info['latent_code']).to(self.device)
-    #         # drop part_info['latent_code'] from part_info
-    #         part_info.pop('latent_code')
-
-    #         part_info['mesh'] = f'{file_name}_{idx}.ply'
-    #         gen_mesh = self.latentcode_evaluator.generate_mesh(z.unsqueeze(0))
-    #         gen_mesh.export(f'{ply_path}/{part_info["mesh"]}')
-
-    #         processed_node.update(part_info)
-    #         processed_nodes.append(processed_node)
-
-    #     json_path = Path(json_path) / f'{file_name}.json'
-    #     print('[4] Save json: ', json_path)
-    #     json_file = {"meta": {}, "part": processed_nodes}
-    #     with open(json_path, 'w') as f:
-    #         json.dump(json_file, f, indent=4)
-
-    #     print('[5] Done')
-
+        output_data_path = (Path(self.eval_output_path) / f'output.data')
+        with open(output_data_path, 'wb') as f:
+            f.write(pickle.dumps(list_processed_nodes))
+        Log.info("Saved data checkpoint %s.", output_data_path.as_posix())

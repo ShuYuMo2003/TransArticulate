@@ -15,7 +15,7 @@ from model.SDFAutoEncoder.dataloader import GenSDFDataset
 from utils.mylogging import Log
 from utils import to_cuda, camel_to_snake
 
-best_ckpt_path = '/root/workspace/crc61cnhri0c7384uggg/TransArticulate/train_root_dir/SDF/checkpoint/10-01-12PM-06-51/sdf_epoch=1410-loss=0.00700.ckpt'
+best_ckpt_path = '/root/workspace/crc61cnhri0c7384uggg/TransArticulate/train_root_dir/SDF/checkpoint/10-06-10PM-45-33/sdf_epoch=2205-loss=0.00466.ckpt'
 
 def determine_latentcode_encoder(best_ckpt_path):
     Log.info('Using best ckpt: %s', best_ckpt_path)

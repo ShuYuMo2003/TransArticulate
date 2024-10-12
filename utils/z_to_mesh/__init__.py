@@ -4,6 +4,7 @@ from tqdm import tqdm
 
 from ..mylogging import Log
 from .gensdf_generator import Generator3DSDF
+from ..mesh import uniform_sample_point_inside_mesh
 
 
 class GenSDFLatentCodeEvaluator:
@@ -37,7 +38,13 @@ class GenSDFLatentCodeEvaluator:
         '''
         recon_latents = self.gensdf.vae_model.decode(z)
         return self.generator.generate_from_latent(recon_latents[[0]])
-        pass
+
+    def generate_uniform_point_cloud_inside_mesh(self, z: torch.Tensor):
+        '''
+            z: latent code with 1 * dim_z
+        '''
+        shape_feature = self.gensdf.vae_model.decode(z)
+        return uniform_sample_point_inside_mesh(self.gensdf, shape_feature[[0]], resolution=100)
 
     def screenshoot(self, z: torch.Tensor, mask: torch.Tensor, cut_off: int):
         z = z.reshape(-1, z.size(-1))
