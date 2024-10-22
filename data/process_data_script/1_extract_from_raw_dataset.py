@@ -87,34 +87,16 @@ def calcuate_dfn(parts, cur_id):
     for c in child:
         calcuate_dfn(parts, c['raw_id'])
 
-# def get_oriented_bounding_box_parameters_and_save(mesh_path, output_path):
-#     v, f = pcu.load_mesh_vf(str(mesh_path))
-#     resolution = 15_000
-#     vw, fw = pcu.make_mesh_watertight(v, f, resolution)
+def __temp_rough_filter(category_name, shape_id):
+    # global tt_list
+    if category_name != 'Fan':
+        return True
+    else:
+        return shape_id in ['101366', '101374', '101375', '101388', '101407', '101421', '101429', '101436',
+                            '101437', '101440', '101441', '101444', '101445', '101448', '101449', '101460',
+                            '101472', '101474', '101493', '101499', '101504', '101548', '102093', '103171']
 
-#     points = np.asarray(vw)
-#     pcd = o3d.geometry.PointCloud()
-#     pcd.points = o3d.utility.Vector3dVector(points)
-#     obb = pcd.get_oriented_bounding_box()
-
-#     center = obb.center
-#     R = obb.R
-#     extent = obb.extent / 2 # for fit into [-1, -1, -1] [1, 1, 1]
-
-#     _vw = (np.linalg.inv(R) @ (vw - center).T).T / extent
-
-#     pcu.save_mesh_vf(str(output_path), _vw, fw)
-
-#     result =  {
-#         'center': center.tolist(),
-#         'R': R.tolist(),
-#         'extent': extent.tolist()
-#     }
-
-#     return result
-
-
-def process(shape_path:Path, output_info_path:Path, output_mesh_path:Path, needed_categories:list[str], category_count_limit, category_count, is_mobility=True):
+def process(shape_path:Path, output_info_path:Path, output_mesh_path:Path, needed_categories:list[str]):
     start_time      = time.time()
     raw_meta_path   = Path(shape_path) / 'meta.json'
     raw_meta        = json.loads(raw_meta_path.read_text())
@@ -123,18 +105,16 @@ def process(shape_path:Path, output_info_path:Path, output_mesh_path:Path, neede
     key_name        = f"{catecory_name}_{meta['shape_id']}"
     processed_part  = []
 
-    if is_mobility:     mobility_file = json.loads((Path(shape_path) / 'mobility_v2.json').read_text())
-    else:               mobility_file = None
+    path_shape_id   = shape_path.stem
 
+    mobility_file = json.loads((Path(shape_path) / 'mobility_v2.json').read_text())
 
     if catecory_name not in needed_categories and '*' not in needed_categories:
         return f"[Skip] {catecory_name} is not in needed categories.", shape_path
-
-    if category_count_limit.get(catecory_name) is not None  \
-       and category_count[catecory_name] > category_count_limit[catecory_name]:
-        return f"[Skip] {catecory_name} is over the limit.", shape_path
-
     print('Processing:', shape_path)
+
+    if not __temp_rough_filter(catecory_name, path_shape_id):
+        return f"[Skip]  {catecory_name} with {path_shape_id} is not in needed."
 
     partid_to_objs = parse_partid_to_objs(shape_path)
     # print('parse_partid_to_objs', partid_to_objs)
@@ -218,28 +198,14 @@ if __name__ == '__main__':
     raw_dataset_paths   = glob('../datasets/0_raw_dataset/*')
     output_info_path    = Path('../datasets/1_preprocessed_info')
     output_mesh_path    = Path('../datasets/1_preprocessed_mesh')
-    train_split_ratio   = 0.9
+    train_split_ratio   = 1
     needed_categories   = [
             'Bottle',
-            # 'Box',
-            # 'Bucket',
-            # 'Dishwasher',
-            # 'Display',
-            # 'Window',
-            # 'Eyeglasses',
-            # 'Knife',
-            # 'Laptop',
-            # 'Oven',
-            # 'USB',
-            # 'Scissors',
-            # 'Refrigerator',
-            # 'Safe',
-            # 'StorageFurniture',
-            # 'Toilet'
+            'USB',
+            'StorageFurniture',
+            'Safe'
         ]
-    category_count_limit = {
-        'StorageFurniture': 50
-    }
+
     meta_info    = Path('../datasets/meta.json') # Save Split.
 
     shutil.rmtree(output_info_path, ignore_errors=True)
@@ -254,7 +220,7 @@ if __name__ == '__main__':
 
     with Pool(3) as p:
         results = [
-            p.apply_async(process, (Path(shape_path), output_info_path, output_mesh_path, needed_categories, category_count_limit, category_count))
+            p.apply_async(process, (Path(shape_path), output_info_path, output_mesh_path, needed_categories))
             for shape_path in tqdm(raw_dataset_paths)
         ]
 
@@ -306,3 +272,7 @@ if __name__ == '__main__':
             'success_shape_path': success_shape_path,
             'category_count': category_count
         }}, f, indent=2)
+
+
+
+    # print(tt_list)

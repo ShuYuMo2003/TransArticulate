@@ -40,7 +40,7 @@ def produce_rotate_around_line_matrix(start, direction, angle):
     T_inv = produce_translate_matrix(start, 1)
     return T_inv @ R @ T
 
-def generate_obj_pics(_parts_data, percentage, cinema_position):
+def generate_meshs(_parts_data, percentage):
     # print('generate_obj_pics called with percentage = ', percentage)
     parts_data = copy.deepcopy(_parts_data)
     # Sort by dfn
@@ -152,9 +152,11 @@ def generate_obj_pics(_parts_data, percentage, cinema_position):
             print('Error', e, 'on generating ', dfn)
 
 
-    # print(dfn_to_part)
+    return meshs
+
+def generate_obj_pics(_parts_data, percentage, cinema_position):
+    meshs =  generate_meshs(_parts_data, percentage)
     plotter = pv.Plotter(off_screen=True)
-    # plotter = pv.Plotter()
     for (idx, mesh) in enumerate(meshs):
         plotter.add_mesh(mesh, color=bright_colors[idx % len(bright_colors)])
 
@@ -164,11 +166,6 @@ def generate_obj_pics(_parts_data, percentage, cinema_position):
     # print(plotter.camera_position)
     buffer = plotter.screenshot()
     plotter.close()
-
-    # for idx, mesh in enumerate(meshs):
-    #     # save mesh to file
-    #     mesh.export(f'mesh{idx}.obj', file_type='obj')
-
 
     return buffer
 

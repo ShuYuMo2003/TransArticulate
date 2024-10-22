@@ -44,7 +44,7 @@ def create_mesh(
         query = cube[head : min(head + max_batch, cube_points), 0:3].unsqueeze(0)
 
         # inference defined in forward function per pytorch lightning convention
-        #print("shapes: ", shape_feature.shape, query.shape)
+        print("shapes: ", shape_feature.shape, query.shape)
         xyz = query.cuda()
 
         point_features = model.encoder.forward_with_plane_features(shape_feature.cuda(), xyz) # point_features: B, N, D

@@ -8,7 +8,7 @@ wandb:
 default_root_dir: train_root_dir/SDF
 
 dataset_n_dataloader:
-  batch_size: 24
+  batch_size: 20
   n_workers: 10
 
   dataset_dir: data/datasets
@@ -25,16 +25,16 @@ SdfModelSpecs:
   num_layers: 9
 
 evaluation:
-  max_batch: 262144  # 2^18
+  max_batch: 32768  # 2^18 32768
   eval_mesh_output_path: train_root_dir/SDF/tempmesh
   resolution: 256
   count: 20
-  freq_epoch: 1000
+  freq_epoch: 500
   vis_epoch_freq: 5
 
 checkpoint:
   path: train_root_dir/SDF/checkpoint
-  freq: 1000
+  freq: 500
 
 num_epochs: 1000001
 kld_weight: 0.00001

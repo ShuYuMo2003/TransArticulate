@@ -236,11 +236,14 @@ if __name__ == '__main__':
 
     first_stem_names = list(map(lambda x : x.stem, all_ply_files))
 
-    ex_all_ply_files = list(filter(lambda x : x.as_posix()[-3:] == 'ply' and x.stem not in first_stem_names,
-                            Path('../datasets/1_preprocessed_mesh/ex').iterdir()))
 
-    all_ply_files.sort(key=lambda x : str(x))
-    ex_all_ply_files.sort(key=lambda x : str(x))
+    # whether to use extra mesh.
+    # ex_all_ply_files = list(filter(lambda x : x.as_posix()[-3:] == 'ply' and x.stem not in first_stem_names,
+    #                         Path('../datasets/1_preprocessed_mesh/ex').iterdir()))
+
+    # all_ply_files.sort(key=lambda x : str(x))
+    # ex_all_ply_files.sort(key=lambda x : str(x))\
+    ex_all_ply_files = []
 
     # print(all_ply_files)
     # print(ex_all_ply_files)
