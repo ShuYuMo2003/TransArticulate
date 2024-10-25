@@ -7,7 +7,7 @@ from mathutils import Vector
 bpy.context.preferences.view.language = 'en_US'
 bpy.context.preferences.view.use_translate_interface = True
 
-resolution_x, resolution_y = (1024, 1024)
+resolution_x, resolution_y = (400, 400)
 resolution_percentage = 100
 
 PI = 3.14159265357389

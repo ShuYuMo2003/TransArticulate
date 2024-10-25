@@ -7,7 +7,7 @@ from mathutils import Vector
 bpy.context.preferences.view.language = 'en_US'
 bpy.context.preferences.view.use_translate_interface = True
 
-resolution_x, resolution_y = (768, 768)
+resolution_x, resolution_y = (500, 500)
 resolution_percentage = 100
 
 # r, azimuth, elevation = (8, 0, 30)
@@ -15,7 +15,7 @@ r, azimuth, elevation = float('{{r}}'), float('{{azimuth}}'), float('{{elevation
 
 PI = 3.14159265357389
 
-bright_color = ['#802222', '#80a426', '#3e1358', '#154f50', '#91812f']
+bright_color = ['#802222', '#80a426', '#3e1358', '#154f50', '#91812f', '#000080', '#8B4513', '#CD5C5C', '#222A35', '#2E54A1', '#331807']
 
 def spherical_to_cartesian(r, azimuth, elevation):
     '''
@@ -65,7 +65,7 @@ def set_material(idx):
         bsdf.inputs['Base Color'].default_value = color_tuple
         bsdf.inputs['Metallic'].default_value = 0.2
         bsdf.inputs['Roughness'].default_value = 0.7
-        bsdf.inputs['Alpha'].default_value = 0.8
+        bsdf.inputs['Alpha'].default_value = 0.95
 
 def focus_object(obj0, obj):
     '''

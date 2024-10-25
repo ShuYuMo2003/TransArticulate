@@ -177,7 +177,7 @@ def process(shape_info_path:Path, transformer_dataset_path:Path, encoded_text_pa
     return f"[Success] Processed {shape_info_path} part count = {len(datasets)}"
 
 if __name__ == '__main__':
-    best_diffusion_ckpt_point = '/root/workspace/crc61cnhri0c7384uggg/TransArticulate/train_root_dir/Diff/checkpoint/10-08-11AM-40-11/diffusion-epoch=1999-loss=0.04961.ckpt'
+    best_diffusion_ckpt_point = '/root/workspace/crc61cnhri0c7384uggg/TransArticulate/train_root_dir/Diff/checkpoint/10-24-05PM-58-06/diffusion-epoch=7999-loss=0.01899.ckpt'
 
     transformer_dataset_path = Path('../datasets/4_transformer_dataset')
     shutil.rmtree(transformer_dataset_path, ignore_errors=True)

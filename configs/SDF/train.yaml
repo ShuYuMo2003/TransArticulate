@@ -1,4 +1,4 @@
-pretrained_model: null
+pretrained_model: /root/workspace/crc61cnhri0c7384uggg/TransArticulate/train_root_dir/SDF/checkpoint/10-22-11PM-17-09/sdf_epoch=0381-loss=0.00623.ckpt
 
 seed: 123456790
 wandb:
@@ -8,7 +8,7 @@ wandb:
 default_root_dir: train_root_dir/SDF
 
 dataset_n_dataloader:
-  batch_size: 20
+  batch_size: 16
   n_workers: 10
 
   dataset_dir: data/datasets
