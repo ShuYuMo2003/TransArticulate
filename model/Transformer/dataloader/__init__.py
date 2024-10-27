@@ -76,7 +76,11 @@ class TransDiffusionDataset(dataset.Dataset):
         #     json.dump(input, f, indent=4)
 
         for node_idx, node in enumerate(input):
-            node['token'] = torch.tensor(node['token'], dtype=torch.float32)
+            raw_data_info = node['token'][:16]
+            assert len(node['token'][16:]) == 768
+            text_hat = node['packed_info']['text_hat']
+
+            node['token'] = torch.tensor(raw_data_info + text_hat, dtype=torch.float32)
             dfn_fa = node['dfn_fa']
             for idx in range(len(input)):
                 if input[idx]['dfn'] == dfn_fa:
@@ -90,7 +94,7 @@ class TransDiffusionDataset(dataset.Dataset):
             if node.get('dfn_fa') is not None: del node['dfn_fa']
 
         for _ in range(self.max_count_token - len(input)):
-            input.append({'token': copy.deepcopy(self.pad_token), 'fa': 0})
+            input.append({'token': copy.deepcopy(self.pad_token[:80]), 'fa': 0})
 
         transformed_input = {
                 'token': torch.stack([node['token'] for node in input]),

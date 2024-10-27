@@ -46,11 +46,11 @@ transformer_model_paramerter:
   ffn_dropout: 0.1
 
   # channel, weight, height
-  vq_expand_dim: [32, 4, 4]
-  n_embed: 256
-  vq_beta: 0.25
-  vq_loss_weight: 0.1
-  before_vq_net_deepth: 4
+  # vq_expand_dim: [32, 4, 4]
+  # n_embed: 256
+  # vq_beta: 0.25
+  # vq_loss_weight: 0.1
+  # before_vq_net_deepth: 4
 
   encoder_kv_dim: 1024 # decided by pretrained encoder model.
   post_encoder_deepth: 4
@@ -77,7 +77,7 @@ optimizer_paramerter:
     tf_loss: 10
     th_loss: 5
     zl_loss: 2
-    vq_loss: 1
+    # vq_loss: 1
     # df_loss: 2
 
 

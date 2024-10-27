@@ -91,7 +91,7 @@ class TransDiffusionCombineModel(TransArticulatedBaseModule):
         dim_condition = self.part_structure['condition']
         dim_latent = self.part_structure['latentcode']
 
-        pred_result, vq_loss = self.transformer(input, padding_mask, enc_data)
+        pred_result = self.transformer(input, padding_mask, enc_data)
 
         # Do not give a s**t on the padding token at the begining.
         end_token_mask = (raw_end_token_mask[padding_mask > 0.5] > 0.5)
@@ -153,16 +153,16 @@ class TransDiffusionCombineModel(TransArticulatedBaseModule):
 
         loss_ratio = self.op_config['loss_ratio']
         loss = loss_ratio['tf_loss'] * tf_loss          \
-             + loss_ratio['vq_loss'] * vq_loss          \
              + loss_ratio['et_loss'] * et_loss          \
              + loss_ratio['th_loss'] * text_hat_loss    \
              + loss_ratio['zl_loss'] * z_logits_loss
+            #  + loss_ratio['vq_loss'] * vq_loss          \
             #  + loss_ratio['df_loss'] * diff_loss_1
 
         data = {
             'loss': loss,
             'tf_loss': tf_loss,
-            'vq_loss': vq_loss,
+            # 'vq_loss': vq_loss,
             'et_loss': et_loss,
             'text_hat_loss': text_hat_loss,
             'zl_loss': z_logits_loss,

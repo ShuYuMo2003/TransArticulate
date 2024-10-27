@@ -96,6 +96,7 @@ class Evaluater():
         exist_node = {
             'fa': torch.tensor([0]).to(self.device),
             'token': copy.deepcopy(self.start_token).unsqueeze(0).to(self.device),
+            'text_hat': torch.zeros((64)).unsqueeze(0).to(self.device)
         }
         round = 1
         Log.info('[2] Generate nodes')
@@ -111,7 +112,7 @@ class Evaluater():
                 # batch=1 for evaluation.
                 output, vq_loss = self.model.transformer({
                                         'fa': exist_node['fa'].unsqueeze(0),        # batched.
-                                        'token': exist_node['token'].unsqueeze(0),
+                                        'token': torch.cat((exist_node['token'][:, 16:], exist_node['text_hat']), dim=1).unsqueeze(0),
                                     },
                                     self.generate_non_padding_mask(current_length),
                                     encoded_text) # unbatched.
@@ -146,6 +147,7 @@ class Evaluater():
             for idx, child_node in zip(fa_idx, result):
                 exist_node['fa'] = torch.cat((exist_node['fa'], torch.tensor([idx]).to(self.device)), dim=0)
                 exist_node['token'] = torch.cat((exist_node['token'], child_node.unsqueeze(0)), dim=0)
+                exist_node['text_hat'] = torch.cat((exist_node['text_hat'], pred_text_hat.unsqueeze(0)), dim=0)
 
         processed_nodes = []
 

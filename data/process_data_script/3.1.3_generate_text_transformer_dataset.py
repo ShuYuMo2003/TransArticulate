@@ -90,7 +90,7 @@ def process(shape_info_path:Path, transformer_dataset_path:Path, encoded_text_pa
         if packed_info is None:
             return f"[Error] Latent code not found for {mesh_file_name}"
         part_info['latent_code'] = packed_info['latent']
-        part_info['text_hat'] = packed_info['text_hat']
+        # part_info['text_hat'] = packed_info['text_hat']
 
         token = tokenize_part_info(part_info)
 
@@ -122,7 +122,7 @@ def process(shape_info_path:Path, transformer_dataset_path:Path, encoded_text_pa
     assert root is not None
 
     exist_node = [{'token': start_token, 'dfn': 0, 'dfn_fa' : 0, 'child': [root], 'name': 'root', 'packed_info': {
-        'text_hat': np.zeros_like(root['packed_info']['text_hat']),
+        'text_hat': np.zeros_like(root['packed_info']['text_hat']).tolist(),
     }}]
 
     datasets = []
