@@ -1,4 +1,4 @@
-pretrained_model: /root/workspace/crc61cnhri0c7384uggg/TransArticulate/train_root_dir/SDF/checkpoint/10-22-11PM-17-09/sdf_epoch=0381-loss=0.00623.ckpt
+pretrained_model: null
 
 seed: 123456790
 wandb:

@@ -39,7 +39,8 @@ def process_description(t5_cache_path:Path, t5_model_name:str,
         save_path = [x[0] for x in slice]
         input = [x[1] for x in slice]
 
-        input_ids = tokenizer(input, return_tensors="pt", padding='max_length', max_length=max_sentence_length).input_ids
+        input_ids = tokenizer(input, return_tensors="pt", padding='max_length',
+                              max_length=max_sentence_length, truncation=True).input_ids
         input_ids = input_ids.to(device)
         outputs = model(input_ids=input_ids)
         encoded_text = outputs.last_hidden_state.detach().cpu().numpy()
@@ -53,7 +54,7 @@ if __name__ == '__main__':
     t5_cache_path.mkdir(exist_ok=True)
     t5_model_name = 'google-t5/t5-large'
     t5_device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    t5_batch_size = 10
+    t5_batch_size = 4
     t5_max_sentence_length = 512
 
     description_path = Path('../datasets/3_text_condition')

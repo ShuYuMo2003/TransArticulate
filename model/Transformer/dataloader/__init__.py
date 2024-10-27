@@ -57,11 +57,11 @@ class TransDiffusionDataset(dataset.Dataset):
         if self.cache[index] is not None:
             return self.cache[index]
 
-        print(f"Loading {index}th data")
+        # print(f"Loading {index}th data")
         enc_path, file_path = self.files_path[index]
         data = json.loads(Path(file_path).read_text())
 
-        print(f"enc_path: {enc_path}")
+        # print(f"enc_path: {enc_path}")
         enc = np.load(enc_path, allow_pickle=True)
 
         if self.enc_data_fieldname == 'description':
@@ -137,7 +137,7 @@ class TransDiffusionDataset(dataset.Dataset):
         # Process Padding Mask
         padding_mask = torch.ones(self.max_count_token, dtype=torch.int16)
         padding_mask[total_token:] = 0
-        
+
         return [transformed_input, transformed_output, padding_mask, output_skip_end_token_mask] +   \
                     ([enc['encoded_text'], enc['text']] if self.enc_data_fieldname == 'description'
                 else [enc.astype(np.float32), str(enc_path)])

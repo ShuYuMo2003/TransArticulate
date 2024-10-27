@@ -17,14 +17,12 @@ bg_ply_path = Path('../../static/bg.ply')
 blender_main_program_path = Path('/root/workspace/crc61cnhri0c7384uggg/TransArticulate/3rd/blender-4.2.2-linux-x64/blender')
 n_png_per_obj = 1
 
-random.seed(20030912)
+random.seed(20031006)
 
 def generate_high_q_screenshot(obj_name: str, textured_obj_path: Path, output_dir: Path):
     suffix = generate_random_string(4)
     template_path = output_dir / f'script-{obj_name}-{suffix}.py'
     log_path = output_dir / f'log-{obj_name}-{suffix}.log'
-
-    d = (10, 0, 30)
 
     cur_script = (script
             .replace("{{objs_path}}", textured_obj_path.as_posix())

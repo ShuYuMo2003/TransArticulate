@@ -1,8 +1,8 @@
-checkpoint_path: /root/workspace/crc61cnhri0c7384uggg/TransArticulate/train_root_dir/Transformer_Diffusion/checkpoint/10-10-08PM-14-20/epoch=3818-loss=0.02268.ckpt
-
+checkpoint_path: /root/workspace/crc61cnhri0c7384uggg/TransArticulate/train_root_dir/Transformer_Diffusion/checkpoint/10-26-01PM-56-39/epoch=1847-loss=0.04646.ckpt
+# /root/workspace/crc61cnhri0c7384uggg/TransArticulate/train_root_dir/Transformer_Diffusion/checkpoint/10-26-01PM-56-39/epoch=0700-loss=0.10565.ckpt
 eval_output_path: log/TF-Diff/
 
-t5_max_sentence_length: 128
+t5_max_sentence_length: 512
 
 gensdf_latentcode_evaluator:
   gensdf_model_path: null
@@ -11,7 +11,7 @@ gensdf_latentcode_evaluator:
 
 number_of_trial: 20
 
-input_text: This is a type of bottle.
+input_text: This is a type of USB.
 
 # This storage furniture features a main vertical cabinet structure with a horizontal shelf that can slide out from the side, allowing access to items stored on the shelf.
 # A toilet features a lid on the tank that can be lifted to access the internal mechanisms, and a hinged seat and lid on the bowl that can be lifted upwards for use and cleaning.
