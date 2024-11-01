@@ -24,6 +24,10 @@ import utils.mesh as MeshUtils
 from utils.mylogging import Log
 from utils.z_to_mesh import GenSDFLatentCodeEvaluator
 
+import sys
+sys.path.append('../../..')
+from eval.visualize import visualize_obj_high_q
+
 class Evaluater():
     def __init__(self, eval_config):
         self.eval_config = eval_config
@@ -64,8 +68,8 @@ class Evaluater():
 
         Log.info("Loading model %s", SDFAutoEncoder)
         self.gensdf_config = self.eval_config['gensdf_latentcode_evaluator']
-        self.gensdf_config['gensdf_model_path'] = self.dataset.get_best_sdf_ckpt_path()
-        self.sdf = SDFAutoEncoder.load_from_checkpoint(self.gensdf_config['gensdf_model_path'])
+        # self.gensdf_config['gensdf_model_path'] = self.dataset.get_best_sdf_ckpt_path()
+        self.sdf = self.model.sdf # SDFAutoEncoder.load_from_checkpoint(self.gensdf_config['gensdf_model_path'])
         self.sdf.eval()
         self.latentcode_evaluator = GenSDFLatentCodeEvaluator(self.sdf, eval_mesh_output_path=self.eval_output_path,
                                                              resolution=self.gensdf_config['resolution'],
@@ -91,32 +95,30 @@ class Evaluater():
         return difference < self.equal_part_threshold
 
     def inference_from_text(self, text):
-        Log.info('[1] Inference text: %s', text)
+        Log.info('[1] Inference text: %s', len(text))
         encoded_text = self.encode_text(text)
         exist_node = {
             'fa': torch.tensor([0]).to(self.device),
-            'token': copy.deepcopy(self.start_token).unsqueeze(0).to(self.device),
-            'text_hat': torch.zeros((64)).unsqueeze(0).to(self.device)
+            'token': copy.deepcopy((self.start_token[:16])).unsqueeze(0).to(self.device),
+            'text_hat': torch.zeros((64)).unsqueeze(0).to(self.device),
+            'z_hat': torch.zeros((4, 768)).unsqueeze(0).to(self.device),
         }
         round = 1
         Log.info('[2] Generate nodes')
-
-        dim_condition = self.m_config['part_structure']['condition']
-        dim_latent = self.m_config['part_structure']['latentcode']
-
+        atten_weights_list = []
         while True:
             current_length = exist_node['token'].size(0)
             Log.info('   - Generate nodes round: %s, part count: %s', round, exist_node['token'].size(0))
             with torch.no_grad():
                 # input: (batch, seq, xxx) ---> (batch|seq, xxx) base on `padding_mask`, the dimension of batch & seq are merged.
                 # batch=1 for evaluation.
-                output, vq_loss = self.model.transformer({
-                                        'fa': exist_node['fa'].unsqueeze(0),        # batched.
-                                        'token': torch.cat((exist_node['token'][:, 16:], exist_node['text_hat']), dim=1).unsqueeze(0),
-                                    },
-                                    self.generate_non_padding_mask(current_length),
-                                    encoded_text) # unbatched.
-
+                output = self.model.transformer({
+                                'fa': exist_node['fa'].unsqueeze(0),        # batched.
+                                'token': torch.cat((exist_node['token'], exist_node['text_hat']), dim=1).unsqueeze(0),
+                            },
+                            self.generate_non_padding_mask(current_length),
+                            encoded_text) # unbatched.
+            atten_weights_list.append(output['cross_attn_weight_list'])
             # Solve End Token.
             # True -> not end token, False -> end token
             end_token_mask = output['is_end_token_logits'] > 0
@@ -126,32 +128,34 @@ class Evaluater():
                 break
 
             condition = output['condition']
-            pred_text_hat = condition['text_hat'][end_token_mask]
-            pred_z_logits = condition['z_logits'][end_token_mask]
+            pred_text_hat = condition['text_hat'][end_token_mask] # torch.Size([1, 64])
+            pred_z_logits = condition['z_logits'][end_token_mask] # torch.Size([1, 4, 128])
 
             q_z, _KL, _perplexity, _logits = self.z_mini_encoder.forward_with_logits_or_x(tau=0.5, logits=pred_z_logits)
 
-            Log.info('   - Generate latent code with condition')
-            latent = self.model.diffusion.model.generate_conditional({
-                'z_hat': q_z,
-                'text': pred_text_hat,
-            })
-
             articulated_info = output['articulated_info'][end_token_mask]
 
-            result = torch.cat((articulated_info, latent), dim=-1)
+            # result = torch.cat((articulated_info, latent), dim=-1)
+            result = articulated_info
 
             fa_idx = torch.arange(end_token_mask.shape[0], device=self.device)
             fa_idx = fa_idx[end_token_mask]
 
-            for idx, child_node in zip(fa_idx, result):
-                exist_node['fa'] = torch.cat((exist_node['fa'], torch.tensor([idx]).to(self.device)), dim=0)
-                exist_node['token'] = torch.cat((exist_node['token'], child_node.unsqueeze(0)), dim=0)
-                exist_node['text_hat'] = torch.cat((exist_node['text_hat'], pred_text_hat.unsqueeze(0)), dim=0)
+            exist_node['fa'] = torch.cat((exist_node['fa'], fa_idx), dim=0)
+            exist_node['token'] = torch.cat((exist_node['token'], result), dim=0)
+            exist_node['text_hat'] = torch.cat((exist_node['text_hat'], pred_text_hat), dim=0)
+            exist_node['z_hat'] = torch.cat((exist_node['z_hat'], q_z), dim=0)
+
+
+        Log.info('[3] reconstruct latent code with condition')
+        latent = self.model.diffusion.model.generate_conditional({
+            'z_hat': exist_node['z_hat'],
+            'text': exist_node['text_hat'],
+        })
+        exist_node['token'] = torch.cat((exist_node['token'], latent), dim=-1)
 
         processed_nodes = []
-
-        Log.info('[3] Generate mesh')
+        Log.info('[4] Generate mesh')
 
         for idx in trange(exist_node['fa'].shape[0], desc='   - Generate mesh'):
             dfn_fa = exist_node['fa'][idx].item()
@@ -175,7 +179,32 @@ class Evaluater():
         # import pdb; pdb.set_trace()
 
         # We do not want start token.
-        return processed_nodes[1:]
+        return processed_nodes[1:], atten_weights_list
+
+    def inference_to_output_path(self, text, output_path, blender_generated_gif=False):
+        output_path.mkdir(exist_ok=True, parents=True)
+        processed_nodes, atten_weights_list = self.inference_from_text(text)
+
+        output_tex_path = output_path / "input.txt"
+        output_tex_path.write_text(text)
+        Log.info("[Write] %s", output_tex_path)
+
+        # output_gif_path = output_path / "simple"
+        # generate_gif_toy(processed_nodes, output_gif_path, bar_prompt="   - Generate Frames", n_frame=10, blender_generated_gif=blender_generated_gif)
+        # Log.info("[Write] %s", output_gif_path)
+
+        output_data_path = output_path / "output.dat"
+        with open(output_data_path, 'wb') as f: f.write(pickle.dumps(processed_nodes))
+        Log.info("[Write] %s", output_data_path)
+
+        output_temp_path : Path = output_path / "temp"
+        output_temp_path.mkdir(exist_ok=True, parents=True)
+        Log.info("[Write] %s", output_temp_path)
+
+        for ratio in [0, 0.5, 1]:
+            visualize_obj_high_q(processed_nodes, output_temp_path / str(ratio), output_path / str(ratio), ratio)
+
+        return atten_weights_list
 
     def inference(self, text):
         number_of_trial = self.number_of_trial

@@ -99,9 +99,11 @@ class TransformerDecoder(nn.Module):
 
         attn_mask = self.generate_mask(n_part)
 
+        cross_attn_weight_list = []
         for idx, layer in enumerate(self.layers):
             # tokens = layer(tokens, padding_mask, attn_mask, enc_data, None)
-            tokens = layer(tokens, padding_mask, attn_mask, enc_data)
+            tokens, cross_attn_weight = layer(tokens, padding_mask, attn_mask, enc_data)
+            cross_attn_weight_list.append(cross_attn_weight.detach().cpu().numpy())
 
         # skip padding mask.
         tokens = tokens[padding_mask > 0.5]
@@ -122,9 +124,10 @@ class TransformerDecoder(nn.Module):
         _b_mu = raw_articulated_info[:, 0:3]
         _b_logvar = raw_articulated_info[:, 3:6]
         # Sample base on predicted `mean` and `var`.
-        _b_std = torch.exp(0.5 * _b_logvar)
-        eps = torch.randn_like(_b_std)
-        _b_length_xyz = _b_mu + eps * _b_std
+        # _b_std = torch.exp(0.5 * _b_logvar)
+        # eps = torch.randn_like(_b_std)
+        _b_length_xyz = _b_mu #  + eps * _b_std
+        # Do Not try to sample from code.
         articulated_info = torch.cat((_b_length_xyz, raw_articulated_info[:, 6:]), dim=-1)
 
         result = {
@@ -133,6 +136,7 @@ class TransformerDecoder(nn.Module):
             'condition': {
                 'text_hat': text_hat_condition,
                 'z_logits': z_logits_condition
-            }
+            },
+            'cross_attn_weight_list': cross_attn_weight_list
         }
         return result

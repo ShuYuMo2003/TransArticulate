@@ -14,6 +14,10 @@ from pathlib import Path
 
 import random
 
+import sys
+sys.path.append('..')
+from eval.visualize import visualize_obj_high_q
+
 def smooth_mesh(mesh: trimesh.Trimesh):
     mesh.export("temp-smooth.ply")
     v, f = pcu.load_mesh_vf("temp-smooth.ply")
@@ -67,7 +71,7 @@ def camel_to_snake(name):
     return re.sub('([a-z0-9])([A-Z])', r'\1 \2', s1).lower()
 
 def generate_gif_toy(tokens, shape_output_path: Path, bar_prompt:str='', n_frame: int=100,
-                    n_timepoint: int=50, fps:int=40):
+                    n_timepoint: int=50, fps:int=40, blender_generated_gif=False):
 
     def speed_control_curve(n_frame, n_timepoint, timepoint):
         frameid = n_frame*(1.0/(1+np.exp(
@@ -80,10 +84,16 @@ def generate_gif_toy(tokens, shape_output_path: Path, bar_prompt:str='', n_frame
 
     buffers = []
     for ratio in tqdm(np.linspace(0, 1, n_frame), desc=bar_prompt):
-        buffer = generate_obj_pics(tokens, ratio,
-                [(3.487083128152961, 1.8127192062148014, 1.9810015800028038),
-                (-0.04570716149497277, -0.06563260832821388, -0.06195879116203942),
-                (-0.37480300238091124, 0.9080915656577206, -0.18679512249404312)])
+        if not blender_generated_gif:
+            buffer = generate_obj_pics(tokens, ratio,
+                    [(3.487083128152961, 1.8127192062148014, 1.9810015800028038),
+                    (-0.04570716149497277, -0.06563260832821388, -0.06195879116203942),
+                    (-0.37480300238091124, 0.9080915656577206, -0.18679512249404312)])
+        else:
+            from PIL import Image
+            visualize_obj_high_q(tokens, shape_output_path / "temp#1" / str(ratio), shape_output_path / "temp#2" / str(ratio), ratio)
+            image = Image.open(shape_output_path / "temp#2" / str(ratio) / "result.png")
+            buffer = np.array(image)
         buffers.append(buffer)
 
     frames = []
@@ -93,7 +103,7 @@ def generate_gif_toy(tokens, shape_output_path: Path, bar_prompt:str='', n_frame
 
     frames = frames + frames[::-1]
 
-    imageio.mimsave(shape_output_path.as_posix(), frames, fps=fps)
+    imageio.mimsave((shape_output_path / "result.gif").as_posix(), frames, fps=fps)
 
 def untokenize_part_info(token):
     part_info = {

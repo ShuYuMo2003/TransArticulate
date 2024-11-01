@@ -7,7 +7,7 @@ from mathutils import Vector
 bpy.context.preferences.view.language = 'en_US'
 bpy.context.preferences.view.use_translate_interface = True
 
-resolution_x, resolution_y = (500, 500)
+resolution_x, resolution_y = (512, 512)
 resolution_percentage = 100
 
 # r, azimuth, elevation = (8, 0, 30)
@@ -95,6 +95,7 @@ def render_shape_blender(objs_path, bg_ply_path, output_path, use_gpu: bool, tra
 
     # Import objects from obj path
     obj_files = [f for f in os.listdir(objs_path) if f.endswith('.obj') or f.endswith('ply')]
+    obj_files.sort()
     for idx, obj_file in enumerate(obj_files):
         obj_file_path = os.path.join(objs_path, obj_file)
         if obj_file_path.endswith('obj'):

@@ -40,7 +40,7 @@ class DecoderLayer(nn.Module):
         if enc_data is not None:
             before_x = x
             # shape of x: (batch, query_len, d_model)
-            x, attn_weight = self.cross_attention(x, enc_data, enc_data)
+            x, cross_attn_weight = self.cross_attention(x, enc_data, enc_data)
 
             x = self.dropout_2(x)
             x = self.norm_2(x + before_x)
@@ -52,4 +52,4 @@ class DecoderLayer(nn.Module):
             x = self.dropout_3(x)
             x = self.norm_3(x + before_x)
 
-        return x
+        return x, cross_attn_weight

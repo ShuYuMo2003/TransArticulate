@@ -16,7 +16,7 @@ SMOOTH_MESH_ITER_NUM = 1
 BLENDER_MAIN_PROGRAM_PATH = Path('/root/workspace/crc61cnhri0c7384uggg/TransArticulate/3rd/blender-4.2.2-linux-x64/blender')
 BG_PLY_PATH = Path('/root/workspace/crc61cnhri0c7384uggg/TransArticulate/static/bg.ply')
 BLENDER_SCRIPT_TEMPLATE = Path('/root/workspace/crc61cnhri0c7384uggg/TransArticulate/static/blender_render_script_figure.template.py').read_text()
-USE_GPU = False
+USE_GPU = True
 
 def smooth_mesh(src: Path, dist: Path):
     v, f = pcu.load_mesh_vf(src.as_posix())
@@ -51,8 +51,8 @@ def generate_blender_screenshot_from_meshs(meshs_root_path: Path, temp_file_path
             .replace("{{objs_path}}", meshs_root_path.as_posix())
             .replace("{{bg_ply_path}}", BG_PLY_PATH.as_posix())
             .replace("{{output_path}}", output_path.as_posix())
-            .replace("{{r}}", '8')
-            .replace("{{azimuth}}", '0')
+            .replace("{{r}}", '10')
+            .replace("{{azimuth}}", '300')
             .replace("{{elevation}}", '30')
             .replace("{{USE_GPU}}", "True" if USE_GPU else "False")
         )
@@ -78,33 +78,50 @@ def generate_blender_screenshot_from_meshs(meshs_root_path: Path, temp_file_path
 def visualize_obj_high_q(obj_data, temp_output_path: Path, output_path: Path, percentage):
     shutil.rmtree(temp_output_path, ignore_errors=True)
     (temp_output_path / "raw").mkdir(parents=True, exist_ok=True)
-    (temp_output_path / "smo").mkdir(parents=True, exist_ok=True)
+    (temp_output_path / "bbx").mkdir(parents=True, exist_ok=True)
 
     shutil.rmtree(output_path, ignore_errors=True)
     output_path.mkdir(parents=True, exist_ok=True)
 
-    meshs : list[trimesh.Trimesh] = generate_meshs(obj_data, percentage)
+    mesh_pair = generate_meshs(obj_data, percentage)
+    meshs : list[trimesh.Trimesh]       = mesh_pair[0]
+    bbox_meshs : list[trimesh.Trimesh]  = mesh_pair[1]
 
-    for idx, mesh in enumerate(meshs):
+    assert len(meshs) == len(bbox_meshs)
+
+    for idx in range(len(meshs)):
+        mesh = meshs[idx]
         Log.info("length of mesh vertices %s", len(mesh.vertices))
         if len(mesh.vertices) <= 3:
             Log.warning("length of mesh vertices %s, ignore. idx = %s", len(mesh.vertices), idx)
             continue
+
         raw_mesh_output_path = temp_output_path / "raw" / f"{idx}.obj"
         mesh.export(raw_mesh_output_path)
         Log.info("[Write] %s", raw_mesh_output_path)
 
-        smo_mesh_output_path = temp_output_path / "smo" / f"{idx}.obj"
-        smooth_mesh(raw_mesh_output_path, smo_mesh_output_path)
+        bbox_mesh = bbox_meshs[idx]
+        bbx_mesh_output_path = temp_output_path / "bbx" / f"{idx}.obj"
+        bbox_mesh.export(bbx_mesh_output_path)
+        Log.info("[Write] %s", bbx_mesh_output_path)
 
-    Log.info("Runnning Simple Script %s", temp_output_path / "smo")
-    generate_simple_screenshot_from_meshs(list((temp_output_path / "smo").glob('*')), output_path / "simple-smo.png")
+        # smo_mesh_output_path = temp_output_path / "smo" / f"{idx}.obj"
+        # smooth_mesh(raw_mesh_output_path, smo_mesh_output_path)
 
-    Log.info("Runnning Simple Script %s", temp_output_path / "raw")
-    generate_simple_screenshot_from_meshs(list((temp_output_path / "raw").glob('*')), output_path / "simple-raw.png")
+    # Log.info("Runnning Simple Script %s", temp_output_path / "smo")
+    # generate_simple_screenshot_from_meshs(list((temp_output_path / "smo").glob('*')), output_path / "simple-smo.png")
 
+    # Log.info("Runnning Simple Script %s", temp_output_path / "raw")
+    # generate_simple_screenshot_from_meshs(list((temp_output_path / "raw").glob('*')), output_path / "simple-raw.png")
+
+    # !!!![SYM]: TEMP CHANGE JUST FOR DEBUG !!!!!
+    # Log.info("Runnning Simple Script %s", temp_output_path / "raw")
+    # generate_simple_screenshot_from_meshs(list((temp_output_path / "raw").glob('*')), output_path / "result.png")
     Log.info("Runnning Blender Script %s", temp_output_path / "raw")
     generate_blender_screenshot_from_meshs(temp_output_path / "raw", temp_output_path, output_path / "result.png")
+
+    Log.info("Runnning Blender Script %s", temp_output_path / "bbx")
+    generate_blender_screenshot_from_meshs(temp_output_path / "bbx", temp_output_path, output_path / "result-bbx.png")
 
 
 if __name__ == '__main__':

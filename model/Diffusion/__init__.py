@@ -37,7 +37,12 @@ class Diffusion(TransArticulatedBaseModule):
         self.e_config = config['evaluation']
         self.e_config['eval_mesh_output_path'] = Path(self.e_config['eval_mesh_output_path'] )
         self.e_config['eval_mesh_output_path'].mkdir(parents=True, exist_ok=True)
-        self.sdf = SDFAutoEncoder.load_from_checkpoint(self.e_config['sdf_model_path'])
+        try:
+            self.sdf = SDFAutoEncoder.load_from_checkpoint(self.e_config['sdf_model_path'])
+        except Exception as e:
+            print("DO NOT FOUND CUSTOM CKPT. USE DEFAULT CKPT. : ", e)
+            import time; time.sleep(2)
+            self.sdf = SDFAutoEncoder.load_from_checkpoint('train_root_dir/SDF/checkpoint/10-23-08PM-38-18/sdf_epoch=1434-loss=0.00183.ckpt')
         self.sdf.eval()
 
     def configure_optimizers(self):

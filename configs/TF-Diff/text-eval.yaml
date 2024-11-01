@@ -1,5 +1,6 @@
-checkpoint_path: /root/workspace/crc61cnhri0c7384uggg/TransArticulate/train_root_dir/Transformer_Diffusion/checkpoint/10-26-01PM-56-39/epoch=1847-loss=0.04646.ckpt
-# /root/workspace/crc61cnhri0c7384uggg/TransArticulate/train_root_dir/Transformer_Diffusion/checkpoint/10-26-01PM-56-39/epoch=0700-loss=0.10565.ckpt
+checkpoint_path: /root/workspace/crc61cnhri0c7384uggg/TransArticulate/train_root_dir/Transformer_Diffusion/checkpoint/10-27-06PM-55-50/epoch=2101-loss=0.02482.ckpt
+
+
 eval_output_path: log/TF-Diff/
 
 t5_max_sentence_length: 512
@@ -11,7 +12,7 @@ gensdf_latentcode_evaluator:
 
 number_of_trial: 20
 
-input_text: This is a type of USB.
+# input_text: This bottle consists of a cylindrical body with a slightly rounded bottom, transitioning into a narrow neck that flares out gently. The neck culminates in a flat, circular top, which likely serves as a cap or lid. There's a small loop or handle attached to the neck, allowing for easy carrying. The motion characteristics include the potential for the cap to twist or lift off, and the handle facilitates tilting or pouring. The overall shape supports stability and ease of use.
 
 # This storage furniture features a main vertical cabinet structure with a horizontal shelf that can slide out from the side, allowing access to items stored on the shelf.
 # A toilet features a lid on the tank that can be lifted to access the internal mechanisms, and a hinged seat and lid on the bowl that can be lifted upwards for use and cleaning.
