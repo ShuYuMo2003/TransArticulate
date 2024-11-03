@@ -7,7 +7,7 @@ from lightning.pytorch import Trainer, seed_everything
 from lightning.pytorch.loggers import WandbLogger
 from lightning.pytorch.callbacks import ModelCheckpoint, TQDMProgressBar, ModelSummary
 
-from utils.logging import Log
+from utils.mylogging import Log
 from utils import parse_config_from_args
 
 from pathlib import Path
@@ -45,7 +45,12 @@ if __name__ == '__main__':
     print("Len = ", len(dataloader.dataset))
 
     # Set up model
-    model = Diffusion(config)
+    if config.get('load_from_pretrained_ckpt') is not None:
+        Log.info("Load pretrained checkpoint %s", config['load_from_pretrained_ckpt'])
+        model = Diffusion.load_from_checkpoint(config['load_from_pretrained_ckpt'])
+        Log.info('Done')
+    else:
+        model = Diffusion(config)
 
     # Configure save checkpoint callback
     checkpoint_callback = ModelCheckpoint(

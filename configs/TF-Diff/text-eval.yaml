@@ -1,16 +1,18 @@
-checkpoint_path: train_root_dir/Transformer_Diffusion/checkpoint/09-24-11PM-46-52/epoch=1401-loss=0.01127.ckpt
+checkpoint_path: /root/workspace/crc61cnhri0c7384uggg/TransArticulate/train_root_dir/Transformer_Diffusion/checkpoint/10-27-06PM-55-50/epoch=2101-loss=0.02482.ckpt
+
 
 eval_output_path: log/TF-Diff/
 
-t5_max_sentence_length: 128
+t5_max_sentence_length: 512
 
 gensdf_latentcode_evaluator:
   gensdf_model_path: null
   resolution: 16
   max_batch: 262144         # 2 ^ 18
 
+number_of_trial: 20
 
-input_text: A toilet features a lid on the tank that can be lifted to access the internal mechanisms, and a hinged seat and lid on the bowl that can be lifted upwards for use and cleaning. # features a main vertical cabinet structure with a horizontal shelf that can slide out from the side, allowing access to items stored on the shelf.
+# input_text: This bottle consists of a cylindrical body with a slightly rounded bottom, transitioning into a narrow neck that flares out gently. The neck culminates in a flat, circular top, which likely serves as a cap or lid. There's a small loop or handle attached to the neck, allowing for easy carrying. The motion characteristics include the potential for the cap to twist or lift off, and the handle facilitates tilting or pouring. The overall shape supports stability and ease of use.
 
 # This storage furniture features a main vertical cabinet structure with a horizontal shelf that can slide out from the side, allowing access to items stored on the shelf.
 # A toilet features a lid on the tank that can be lifted to access the internal mechanisms, and a hinged seat and lid on the bowl that can be lifted upwards for use and cleaning.

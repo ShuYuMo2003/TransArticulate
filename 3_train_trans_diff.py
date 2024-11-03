@@ -7,7 +7,7 @@ from lightning.pytorch import Trainer, seed_everything
 from lightning.pytorch.loggers import WandbLogger
 from lightning.pytorch.callbacks import ModelCheckpoint, TQDMProgressBar, ModelSummary
 
-from utils.logging import Log
+from utils.mylogging import Log
 from utils import parse_config_from_args
 
 from pathlib import Path

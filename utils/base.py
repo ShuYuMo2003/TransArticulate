@@ -4,7 +4,7 @@ import torch
 import numpy as np
 import lightning as L
 
-from .logging import Log, Console
+from .mylogging import Log, Console
 
 class TransArticulatedBaseDataModule(L.LightningDataModule):
     def __init__(self, d_configs):

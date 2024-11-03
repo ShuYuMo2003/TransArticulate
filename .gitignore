@@ -7,6 +7,7 @@ train_root_dir/
 wandb/
 cache/
 3rd/
+elog/
 
 # Part B: gitignore for python projects in template.
 # Byte-compiled / optimized / DLL files

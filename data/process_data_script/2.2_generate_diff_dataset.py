@@ -12,10 +12,10 @@ import sys
 sys.path.append('../..')
 from model.SDFAutoEncoder import SDFAutoEncoder
 from model.SDFAutoEncoder.dataloader import GenSDFDataset
-from utils.logging import Log
+from utils.mylogging import Log
 from utils import to_cuda, camel_to_snake
 
-best_ckpt_path = '/root/workspace/crc61cnhri0c7384uggg/TransArticulate/train_root_dir/SDF/checkpoint/10-01-12PM-06-51/sdf_epoch=1410-loss=0.00700.ckpt'
+best_ckpt_path = '/root/workspace/crc61cnhri0c7384uggg/TransArticulate/train_root_dir/SDF/checkpoint/10-23-08PM-38-18/sdf_epoch=1294-loss=0.00161.ckpt'
 
 def determine_latentcode_encoder(best_ckpt_path):
     Log.info('Using best ckpt: %s', best_ckpt_path)
@@ -29,7 +29,7 @@ def evaluate_latent_codes(gensdf):
                     samples_per_mesh=16000, pc_size=4096,
                     uniform_sample_ratio=0.3
                 ),
-            batch_size=28, num_workers=12, pin_memory=True, persistent_workers=True
+            batch_size=20, num_workers=5, pin_memory=True, persistent_workers=True
         )
 
     print("Length =", len(dataloader.dataset))
@@ -112,13 +112,13 @@ if __name__ == '__main__':
         for part_info in shape_json['part']:
             texts.add(f"{shape_name}, {part_info['name']}")
 
-    ex_mesh_info_path = Path('../datasets/1_preprocessed_info/ex')
+    # ex_mesh_info_path = Path('../datasets/1_preprocessed_info/ex')
 
-    for ex_shape_json_path in list(ex_mesh_info_path.glob('*.json')):
-        shape_json = json.loads(ex_shape_json_path.read_text())
-        shape_name = camel_to_snake(shape_json['meta']['model_cat'])
-        for part in shape_json['part']:
-            texts.add(f"{shape_name}, {part['name']}")
+    # for ex_shape_json_path in list(ex_mesh_info_path.glob('*.json')):
+    #     shape_json = json.loads(ex_shape_json_path.read_text())
+    #     shape_name = camel_to_snake(shape_json['meta']['model_cat'])
+    #     for part in shape_json['part']:
+    #         texts.add(f"{shape_name}, {part['name']}")
 
     print(texts)
 
@@ -140,20 +140,20 @@ if __name__ == '__main__':
                      text=text_to_e_text[f"{shape_name}, {part_info['name']}"])
             success.append(mesh_name)
 
-    for ex_shape_json_path in list(ex_mesh_info_path.glob('*.json')):
-        shape_json = json.loads(ex_shape_json_path.read_text())
-        shape_name = camel_to_snake(shape_json['meta']['model_cat'])
-        for part_info in shape_json['part']:
-            mesh_name = Path(part_info['mesh']).stem
-            if mesh_name in success: continue
-            if path_to_latent.get(part_info['mesh']) is None:
-                Log.warning(f"Latent code for {mesh_name} not found")
-                failed.append(mesh_name)
-                continue
-            np.savez(output_path / f"{mesh_name}.npz",
-                     latent_code=path_to_latent[part_info['mesh']],
-                     text=text_to_e_text[f"{shape_name}, {part_info['name']}"])
-            success.append(mesh_name)
+    # for ex_shape_json_path in list(ex_mesh_info_path.glob('*.json')):
+    #     shape_json = json.loads(ex_shape_json_path.read_text())
+    #     shape_name = camel_to_snake(shape_json['meta']['model_cat'])
+    #     for part_info in shape_json['part']:
+    #         mesh_name = Path(part_info['mesh']).stem
+    #         if mesh_name in success: continue
+    #         if path_to_latent.get(part_info['mesh']) is None:
+    #             Log.warning(f"Latent code for {mesh_name} not found")
+    #             failed.append(mesh_name)
+    #             continue
+    #         np.savez(output_path / f"{mesh_name}.npz",
+    #                  latent_code=path_to_latent[part_info['mesh']],
+    #                  text=text_to_e_text[f"{shape_name}, {part_info['name']}"])
+    #         success.append(mesh_name)
 
     with open(output_path / 'meta.json', 'w') as f:
         json.dump({'ckpt': best_ckpt_path, 'failed': failed, 'success': success}, f, indent=2)

@@ -7,7 +7,7 @@ from lightning.pytorch import Trainer, seed_everything
 from lightning.pytorch.loggers import WandbLogger
 from lightning.pytorch.callbacks import ModelCheckpoint, TQDMProgressBar, ModelSummary
 
-from utils.logging import Log
+from utils.mylogging import Log
 from utils import parse_config_from_args
 
 from pathlib import Path
@@ -70,7 +70,7 @@ if __name__ == '__main__':
                       check_val_every_n_epoch=config['evaluation']['freq_epoch'],
                       default_root_dir=config['default_root_dir'],
                       max_epochs=config['num_epochs'], profiler="simple",
-                      log_every_n_steps=20,
+                      log_every_n_steps=5,
                       **optional_kw_args)
 
     Log.info("Start training...")

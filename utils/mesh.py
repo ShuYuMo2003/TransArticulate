@@ -6,7 +6,7 @@ import pyvista as pv
 
 import skimage.measure
 
-from utils.logging import Log
+from utils.mylogging import Log
 
 def generate_mesh_screenshot(mesh: trimesh.Trimesh) -> np.ndarray:
 
@@ -44,7 +44,7 @@ def create_mesh(
         query = cube[head : min(head + max_batch, cube_points), 0:3].unsqueeze(0)
 
         # inference defined in forward function per pytorch lightning convention
-        #print("shapes: ", shape_feature.shape, query.shape)
+        # print("shapes: ", shape_feature.shape, query.shape)
         xyz = query.cuda()
 
         point_features = model.encoder.forward_with_plane_features(shape_feature.cuda(), xyz) # point_features: B, N, D
@@ -67,6 +67,32 @@ def create_mesh(
         ply_filename,
         level_set
     )
+
+
+# generate the point cloud inside the mesh (sdf < 0) to evaluate POR.
+def uniform_sample_point_inside_mesh(model, shape_feature, max_batch=(1<<16), resolution=256):
+    points = create_cube(resolution)
+    total = points.shape[0]
+    cur = 0
+    max_bound, min_bound = points.max(axis=0), points.min(axis=0)
+
+    rho = points.shape[0] / (max_bound - min_bound).prod()
+
+    while cur < total:
+        query_point = points[cur : min(cur + max_batch, total), 0:3].unsqueeze(0)
+
+        cuda_query_point = query_point.cuda()
+
+        point_features = model.encoder.forward_with_plane_features(shape_feature.cuda(), cuda_query_point)
+        pred_sdf = model.decoder( torch.cat((cuda_query_point, point_features),dim=-1) ).detach().cpu()
+
+        points[cur : min(cur + max_batch, total), 3] = pred_sdf.squeeze()
+
+        cur += max_batch
+
+    mask = points[:, 3] < 0
+
+    return points[mask], rho
 
 
 # create cube from (-1,-1,-1) to (1,1,1) and uniformly sample points for marching cube

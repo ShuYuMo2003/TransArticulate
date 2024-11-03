@@ -9,7 +9,7 @@ from rotary_embedding_torch import RotaryEmbedding
 
 from .utils.model_utils import *
 from .utils.helpers import *
-from utils.logging import Log
+from utils.mylogging import Log
 
 
 class CausalTransformer(nn.Module):
@@ -130,7 +130,12 @@ class DiffusionNet(nn.Module):
 
         # classifier-free guidance: 40% unconditional
         P = torch.randint(low=0, high=10, size=(1,))
-        if P < 4: # 0 1 2 3       -> 40% only text condition
+        if P < 2: # 0 1                -> 20% condition free
+            cond_feature = {
+                'z_hat': torch.zeros_like(cond['z_hat'], device=data.device),
+                'text': torch.zeros_like(cond['text'], device=data.device)
+            }
+        elif P < 4: # 2 3       -> 30% only text condition
             cond_feature = {
                 'z_hat': torch.zeros_like(cond['z_hat'], device=data.device),
                 'text': cond['text']

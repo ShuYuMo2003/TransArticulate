@@ -3,20 +3,21 @@ import time
 import shutil
 import random
 import subprocess
+import trimesh
 from tqdm import tqdm
 from pathlib import Path
 
 import sys
 sys.path.append('../..')
-from utils.logging import console, Log
+from utils.mylogging import console, Log
 from utils import generate_random_string
 
-script = Path('../../static/blender_render_script.template.py').read_text()
+script = Path('../../static/blender_render_script_figure.template.py').read_text()
 bg_ply_path = Path('../../static/bg.ply')
 blender_main_program_path = Path('/root/workspace/crc61cnhri0c7384uggg/TransArticulate/3rd/blender-4.2.2-linux-x64/blender')
-n_png_per_obj = 5
+n_png_per_obj = 1
 
-random.seed(20030912)
+random.seed(20031006)
 
 def generate_high_q_screenshot(obj_name: str, textured_obj_path: Path, output_dir: Path):
     suffix = generate_random_string(4)
@@ -27,9 +28,10 @@ def generate_high_q_screenshot(obj_name: str, textured_obj_path: Path, output_di
             .replace("{{objs_path}}", textured_obj_path.as_posix())
             .replace("{{bg_ply_path}}", bg_ply_path.as_posix())
             .replace("{{output_path}}", (output_dir / (obj_name + f'-{suffix}.png')).as_posix())
-            .replace("{{r}}", f'{(random.random() * (14 - 8.4) + 8.4):.5f}')
-            .replace("{{azimuth}}", f'{random.randint(0, 360):.5f}')
-            .replace("{{elevation}}", f'{random.randint(10, 50):.5f}')
+            .replace("{{r}}", f'8')
+            .replace("{{azimuth}}", f'300')
+            .replace("{{elevation}}", f'30')
+            .replace("{{USE_GPU}}", "True")
         )
 
     template_path.write_text(cur_script)
@@ -52,22 +54,44 @@ def generate_high_q_screenshot(obj_name: str, textured_obj_path: Path, output_di
     Log.info(f'[{obj_name}] Rendered in {time.time() - start_time:.2f}s with returncode = {process.returncode}')
 
 if __name__ == '__main__':
-    raw_dataset_path = Path('../datasets/0_raw_dataset')
+    meshs_path = Path('../datasets/1_preprocessed_mesh')
+
+    processed_mesh_path = Path('../datasets/1.5_preprocessed_obj_mesh')
     high_q_output_path = Path('../datasets/4_screenshot_high_q')
+    shutil.rmtree(processed_mesh_path, ignore_errors=True)
     shutil.rmtree(high_q_output_path, ignore_errors=True)
+
     high_q_output_path.mkdir(exist_ok=True)
 
     extract_info = json.loads((Path('../datasets') / 'meta.json').read_text())['1_extract_from_raw_dataset']
     train_keys = extract_info['train_split'] + extract_info['test_split']
 
-    for raw_path in tqdm(list(raw_dataset_path.glob('*')),
+    shape_mesh = {}
+
+    for mesh_path in tqdm(list(meshs_path.glob('*')),
+                     desc="Prefetch mesh for each shape"):
+        mesh_info = mesh_path.stem.split('_')
+        shape_name = '_'.join(mesh_info[:2])
+        if shape_mesh.get(shape_name) is None:
+            shape_mesh[shape_name] = [mesh_path]
+        else:
+            shape_mesh[shape_name].append(mesh_path)
+
+    shape_name_2_mesh_path = {}
+    for shapes_name in tqdm(list(shape_mesh.keys()),
+                     desc="Prefetch mesh for each shape and save"):
+        shape_mesh_output_path : Path = processed_mesh_path / shapes_name
+        shape_mesh_output_path.mkdir(exist_ok=True, parents=True)
+
+        for idx, part_mesh_path in enumerate(sorted(shape_mesh[shapes_name])):
+            mesh = trimesh.load_mesh(part_mesh_path.as_posix())
+            mesh.export(shape_mesh_output_path / f"{idx}.obj")
+
+        shape_name_2_mesh_path[shapes_name] = shape_mesh_output_path
+
+    for shapes_name in tqdm(list(shape_name_2_mesh_path.keys()),
                          desc='Generating High-Quality Screenshots'):
-        meta = json.loads((raw_path / 'meta.json').read_text())
-        obj_name = (meta['model_cat'] + '_' + meta['anno_id'])
-        if obj_name not in train_keys:
-            Log.info(f'[{obj_name}] Skipping')
-            continue
-        Log.info(f"Processing {obj_name}")
+        Log.info(f"Processing {shapes_name}")
         for _ in range(n_png_per_obj):
-            generate_high_q_screenshot(obj_name, raw_path / 'textured_objs', high_q_output_path)
-            Log.info(f'[{obj_name}] Done, repeat = {_ + 1}')
+            generate_high_q_screenshot(shapes_name, shape_name_2_mesh_path[shapes_name], high_q_output_path)
+            Log.info(f'[{shapes_name}] Done, repeat = {_ + 1}')

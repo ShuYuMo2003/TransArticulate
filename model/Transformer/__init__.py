@@ -21,7 +21,7 @@ from .transformer.decoder import TransformerDecoder
 from ..Diffusion.diffusion import DiffusionNet
 from ..Diffusion.diffusion_wapper import DiffusionModel
 from ..Diffusion.utils.helpers import ResnetBlockFC
-from utils.logging import Log
+from utils.mylogging import Log
 
 from model.SDFAutoEncoder import SDFAutoEncoder
 from model.Diffusion import Diffusion
@@ -49,7 +49,14 @@ class TransDiffusionCombineModel(TransArticulatedBaseModule):
 
         Log.info('Using pretrained SDF model: %s', config['evaluation']['sdf_model_path'])
         self.e_config = config['evaluation']
-        self.sdf = SDFAutoEncoder.load_from_checkpoint(self.e_config['sdf_model_path'])
+
+        try:
+            self.sdf = SDFAutoEncoder.load_from_checkpoint(self.e_config['sdf_model_path'])
+        except Exception as e:
+            print("DO NOT FOUND CUSTOM CKPT. USE DEFAULT CKPT. : ", e)
+            import time; time.sleep(2)
+            self.sdf = SDFAutoEncoder.load_from_checkpoint('train_root_dir/SDF/checkpoint/10-23-08PM-38-18/sdf_epoch=1434-loss=0.00183.ckpt')
+
         self.sdf.eval()
         self.e_config['eval_mesh_output_path'] = Path(self.e_config['eval_mesh_output_path'])
         self.e_config['eval_mesh_output_path'].mkdir(parents=True, exist_ok=True)
@@ -91,7 +98,7 @@ class TransDiffusionCombineModel(TransArticulatedBaseModule):
         dim_condition = self.part_structure['condition']
         dim_latent = self.part_structure['latentcode']
 
-        pred_result, vq_loss = self.transformer(input, padding_mask, enc_data)
+        pred_result = self.transformer(input, padding_mask, enc_data)
 
         # Do not give a s**t on the padding token at the begining.
         end_token_mask = (raw_end_token_mask[padding_mask > 0.5] > 0.5)
@@ -153,16 +160,16 @@ class TransDiffusionCombineModel(TransArticulatedBaseModule):
 
         loss_ratio = self.op_config['loss_ratio']
         loss = loss_ratio['tf_loss'] * tf_loss          \
-             + loss_ratio['vq_loss'] * vq_loss          \
              + loss_ratio['et_loss'] * et_loss          \
              + loss_ratio['th_loss'] * text_hat_loss    \
              + loss_ratio['zl_loss'] * z_logits_loss
+            #  + loss_ratio['vq_loss'] * vq_loss          \
             #  + loss_ratio['df_loss'] * diff_loss_1
 
         data = {
             'loss': loss,
             'tf_loss': tf_loss,
-            'vq_loss': vq_loss,
+            # 'vq_loss': vq_loss,
             'et_loss': et_loss,
             'text_hat_loss': text_hat_loss,
             'zl_loss': z_logits_loss,
@@ -231,7 +238,7 @@ class TransDiffusionCombineModel(TransArticulatedBaseModule):
 
                 evaluation_count = min(self.e_config['count'], batched_recon_latent.shape[0], z.shape[0])
 
-                screenshots = [np.random.randn(256, 256, 3) * 255 for _ in range(evaluation_count)]
+                screenshots = [np.random.randn(768, 1024, 3) * 255 for _ in range(evaluation_count)]
                 if self.e_config['count'] > batched_recon_latent.shape[0]:
                     Log.warning('`evaluation.count` is greater than batch size. Setting to batch size')
 

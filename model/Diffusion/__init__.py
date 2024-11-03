@@ -17,7 +17,7 @@ from .utils.helpers import ResnetBlockFC
 
 from .mini_encoders import TextConditionEncoder, ZConditionEncoder
 
-from utils.logging import Log
+from utils.mylogging import Log
 
 
 class Diffusion(TransArticulatedBaseModule):
@@ -37,7 +37,12 @@ class Diffusion(TransArticulatedBaseModule):
         self.e_config = config['evaluation']
         self.e_config['eval_mesh_output_path'] = Path(self.e_config['eval_mesh_output_path'] )
         self.e_config['eval_mesh_output_path'].mkdir(parents=True, exist_ok=True)
-        self.sdf = SDFAutoEncoder.load_from_checkpoint(self.e_config['sdf_model_path'])
+        try:
+            self.sdf = SDFAutoEncoder.load_from_checkpoint(self.e_config['sdf_model_path'])
+        except Exception as e:
+            print("DO NOT FOUND CUSTOM CKPT. USE DEFAULT CKPT. : ", e)
+            import time; time.sleep(2)
+            self.sdf = SDFAutoEncoder.load_from_checkpoint('train_root_dir/SDF/checkpoint/10-23-08PM-38-18/sdf_epoch=1434-loss=0.00183.ckpt')
         self.sdf.eval()
 
     def configure_optimizers(self):
@@ -112,9 +117,11 @@ class Diffusion(TransArticulatedBaseModule):
             # batched_recon_latent = return_dict["reconstructed_plane_feature"]
             batched_recon_latent = self.sdf.vae_model.decode(z) # reconstruced triplane features
             evaluation_count = min(self.e_config['count'], batched_recon_latent.shape[0], z.shape[0])
-            screenshots = [np.random.randn(256, 256, 3) * 255 for _ in range(evaluation_count)]
+
+            screenshots = [np.random.randint(0, 255, (768, 1024, 3)) for _ in range(evaluation_count + 1)]
             if self.e_config['count'] > batched_recon_latent.shape[0]:
                 Log.warning('`evaluation.count` is greater than batch size. Setting to batch size')
+
             for batch in tqdm(range(evaluation_count), desc=f'Generating Mesh for Epoch = {batch_idx}'):
                 recon_latent = batched_recon_latent[[batch]] # ([1, D*3, resolution, resolution])
                 output_mesh = (self.e_config['eval_mesh_output_path'] / f'mesh_{self.trainer.current_epoch}_{batch}.ply').as_posix()
@@ -128,9 +135,9 @@ class Diffusion(TransArticulatedBaseModule):
                 except Exception as e:
                     Log.error(f"Error while generating mesh: {e}")
                     if "Surface level must be within volume data range" in str(e):
-                        break
-                    continue
+                        continue
                 screenshots[batch] = screenshot
+            # import pdb; pdb.set_trace();
             image = np.concatenate(screenshots, axis=1)
             images.append(image)
         images = np.concatenate(images, axis=0)

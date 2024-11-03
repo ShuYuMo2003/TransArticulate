@@ -12,7 +12,7 @@ from multiprocessing import Pool, cpu_count
 
 import sys
 sys.path.append('../..')
-from utils.logging import console, Log
+from utils.mylogging import console, Log
 
 import trimesh
 from tqdm import tqdm
@@ -36,15 +36,15 @@ def ply_to_obj(ply_file, obj_file):
         open(ply_file.as_posix(), 'rb'),
         file_type='ply'
     )
-    # print('1# bounding box: ', mesh.bounds)
-    # (min_bound, max_bound) = mesh.bounds
-    # center = (max_bound + min_bound) / 2
-    # mesh.vertices -= center
+    print('1# bounding box: ', mesh.bounds)
+    (min_bound, max_bound) = mesh.bounds
+    center = (max_bound + min_bound) / 2
+    mesh.vertices -= center
 
-    # scale = (max_bound - min_bound).max() / (2 - 0.005)
-    # mesh.vertices /= scale # fit into [-1, 1]
+    scale = (max_bound - min_bound).max() / (2 - 0.01)
+    mesh.vertices /= scale # fit into [-1, 1]
 
-    # print('2# bounding box: ', mesh.bounds)
+    print('2# bounding box: ', mesh.bounds)
 
     mesh.export(obj_file.as_posix(), file_type='obj')
 
@@ -65,10 +65,10 @@ def obj_to_wtobj_by_pcu_vf(obj_file):
     # # The resolution parameter controls the density of the output mesh
     # # It is linearly proportional to the number of faces in the output
     # # mesh. A higher value corresponds to a denser mesh.
-    # resolution = 19_000
-    # vw, fw = pcu.make_mesh_watertight(v, f, resolution)
+    resolution = 19_000
+    vw, fw = pcu.make_mesh_watertight(v, f, resolution)
 
-    return v, f
+    return vw, fw
 
 # @see: https://www.fwilliams.info/point-cloud-utils/sections/mesh_sdf/
 def wtobj_to_sdf_by_pcu(wt_obj_file, sdf_file, sample_method=[str, str]):
@@ -236,11 +236,14 @@ if __name__ == '__main__':
 
     first_stem_names = list(map(lambda x : x.stem, all_ply_files))
 
-    ex_all_ply_files = list(filter(lambda x : x.as_posix()[-3:] == 'ply' and x.stem not in first_stem_names,
-                            Path('../datasets/1_preprocessed_mesh/ex').iterdir()))
 
-    all_ply_files.sort(key=lambda x : str(x))
-    ex_all_ply_files.sort(key=lambda x : str(x))
+    # whether to use extra mesh.
+    # ex_all_ply_files = list(filter(lambda x : x.as_posix()[-3:] == 'ply' and x.stem not in first_stem_names,
+    #                         Path('../datasets/1_preprocessed_mesh/ex').iterdir()))
+
+    # all_ply_files.sort(key=lambda x : str(x))
+    # ex_all_ply_files.sort(key=lambda x : str(x))\
+    ex_all_ply_files = []
 
     # print(all_ply_files)
     # print(ex_all_ply_files)

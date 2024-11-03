@@ -7,7 +7,7 @@ from .layers.decoder_layer import DecoderLayer
 from .layers.post_encoder import PostEncoder, ResnetBlockFC
 from .layers.token import MLPTokenizer, MLPUnTokenizer
 from .layers.position import PositionGRUEmbedding
-from .layers.vq_embedding import VQEmbedding
+# from .layers.vq_embedding import VQEmbedding
 
 class TransformerDecoder(nn.Module):
     def __init__(self, config):
@@ -18,28 +18,22 @@ class TransformerDecoder(nn.Module):
         self.part_structure = self.config['part_structure']
         self.m_config = self.config['transformer_model_paramerter']
         self.d_model = self.m_config['d_model']
-        self.vq_dim = self.m_config['vq_expand_dim']
+        # self.vq_dim = self.m_config['vq_expand_dim']
 
         self.diff_config = self.config['diff_config']
 
-
-        # self.condition_post_process = nn.Sequential(
-        #     (nn.Linear(self.part_structure['condition'], self.m_config['condition_post_process_hidden_dim'])) +
-        #     (ResnetBlockFC(self.m_config['condition_post_process_hidden_dim'])
-        #      for _ in self.m_config['condition_post_process_deepth'])
-        # )
         self.to_z_logits_fc = nn.Linear(self.part_structure['condition'], self.diff_config['gsemb_num_embeddings'] * self.diff_config['gsemb_latent_dim'])
         self.to_text_hat_fc = nn.Linear(self.part_structure['condition'], self.diff_config['diffusion_model_config']['text_hat_dim'])
 
-        # self.z_hat_dropout = nn.Dropout(self.config['diffusion_model']['z_hat_dropout'])
-
-        d_token_latencode = sum(
-            [v for k, v in self.part_structure.items() if k != 'condition']
-        )
+        d_token_input = sum(
+            [v for k, v in self.part_structure.items() if k != 'condition' and k != 'latentcode']
+        ) + 64 # 64 for text_hat.
 
         d_token_condition = sum(
             [v for k, v in self.part_structure.items() if k != 'latentcode']
         )
+
+        d_token_condition_with_bbx_dis = d_token_condition + 3
 
         self.dim_latent = self.part_structure['latentcode']
         self.dim_condition = self.part_structure['condition']
@@ -49,23 +43,23 @@ class TransformerDecoder(nn.Module):
                                                        dropout=self.m_config['position_embedding_dropout'])
 
 
-        self.expand_latent_dim = reduce(lambda x, y: x * y, self.m_config['vq_expand_dim'])
+        # self.expand_latent_dim = reduce(lambda x, y: x * y, self.m_config['vq_expand_dim'])
 
-        self.latentcode_encoder = nn.Sequential(*[
-            ResnetBlockFC(self.expand_latent_dim, 0.1)
-            for _ in range(self.m_config['before_vq_net_deepth'])
-        ])
+        # self.latentcode_encoder = nn.Sequential(*[
+        #     ResnetBlockFC(self.expand_latent_dim, 0.1)
+        #     for _ in range(self.m_config['before_vq_net_deepth'])
+        # ])
 
-        self.latentcode_expand_fc = nn.Linear(self.dim_latent,  self.expand_latent_dim)
-        self.vq_embedding   = VQEmbedding(self.m_config['n_embed'], self.m_config['vq_expand_dim'][0], beta=self.m_config['vq_beta'])
-        self.latentcode_to_condition = nn.Linear(self.expand_latent_dim, self.dim_condition)
+        # self.latentcode_expand_fc = nn.Linear(self.dim_latent,  self.expand_latent_dim)
+        # self.vq_embedding   = VQEmbedding(self.m_config['n_embed'], self.m_config['vq_expand_dim'][0], beta=self.m_config['vq_beta'])
+        # self.latentcode_to_condition = nn.Linear(self.expand_latent_dim, self.dim_condition)
 
-        self.tokenizer      = MLPTokenizer(d_token=d_token_condition,
+        self.tokenizer      = MLPTokenizer(d_token=d_token_input,
                                            d_hidden=self.m_config['tokenizer_hidden_dim'],
                                            d_model=self.d_model,
                                            drop_out=self.m_config['tokenizer_dropout'])
 
-        self.untokenizer    = MLPUnTokenizer(d_token=d_token_condition,
+        self.untokenizer    = MLPUnTokenizer(d_token_condition_with_bbx_dis,
                                              d_hidden=self.m_config['tokenizer_hidden_dim'],
                                              d_model=self.d_model,
                                              drop_out=self.m_config['tokenizer_dropout'])
@@ -98,19 +92,6 @@ class TransformerDecoder(nn.Module):
 
         batch, n_part, _ = input['token'].size()
 
-        # import pdb; pdb.set_trace()
-
-        # Convert latent code to condition
-        latents = input['token'][:, :, -self.dim_latent:]
-        expand_latents = self.latentcode_expand_fc(latents)
-        expand_latents = self.latentcode_encoder(expand_latents)
-        expand_latents = expand_latents.view(batch * n_part, *self.vq_dim)
-        vq_loss, expand_latents, perplexity, min_encodings, min_encoding_indices  \
-                = self.vq_embedding(expand_latents)
-        expand_latents = expand_latents.view(batch, n_part, -1)
-        condition = self.latentcode_to_condition(expand_latents)
-        input['token'] = torch.cat((input['token'][..., :-self.dim_latent], condition), dim=-1)
-
         # Tokenize the input
         input['token'] = self.tokenizer(input['token'])
 
@@ -118,9 +99,11 @@ class TransformerDecoder(nn.Module):
 
         attn_mask = self.generate_mask(n_part)
 
+        cross_attn_weight_list = []
         for idx, layer in enumerate(self.layers):
             # tokens = layer(tokens, padding_mask, attn_mask, enc_data, None)
-            tokens = layer(tokens, padding_mask, attn_mask, enc_data)
+            tokens, cross_attn_weight = layer(tokens, padding_mask, attn_mask, enc_data)
+            cross_attn_weight_list.append(cross_attn_weight.detach().cpu().numpy())
 
         # skip padding mask.
         tokens = tokens[padding_mask > 0.5]
@@ -130,11 +113,22 @@ class TransformerDecoder(nn.Module):
         tokens = self.untokenizer(tokens)
 
         conditions = tokens[:, -self.dim_condition:]
-        articulated_info = tokens[:, :-self.dim_condition]
+        raw_articulated_info = tokens[:, :-self.dim_condition]
 
         text_hat_condition = self.to_text_hat_fc(conditions)
         z_logits_condition = self.to_z_logits_fc(conditions).view(-1, self.diff_config['gsemb_latent_dim'],
                                                                self.diff_config['gsemb_num_embeddings'])
+
+
+        # process length of xyz of bounding box
+        _b_mu = raw_articulated_info[:, 0:3]
+        _b_logvar = raw_articulated_info[:, 3:6]
+        # Sample base on predicted `mean` and `var`.
+        # _b_std = torch.exp(0.5 * _b_logvar)
+        # eps = torch.randn_like(_b_std)
+        _b_length_xyz = _b_mu #  + eps * _b_std
+        # Do Not try to sample from code.
+        articulated_info = torch.cat((_b_length_xyz, raw_articulated_info[:, 6:]), dim=-1)
 
         result = {
             'is_end_token_logits': end_token_logits,
@@ -142,6 +136,7 @@ class TransformerDecoder(nn.Module):
             'condition': {
                 'text_hat': text_hat_condition,
                 'z_logits': z_logits_condition
-            }
+            },
+            'cross_attn_weight_list': cross_attn_weight_list
         }
-        return result, vq_loss
+        return result

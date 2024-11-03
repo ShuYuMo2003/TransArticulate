@@ -7,7 +7,7 @@ from tqdm import tqdm
 from multiprocessing import Pool
 from rich import print
 import numpy as np
-import open3d as o3d
+# import open3d as o3d
 import pyvista as pv
 from pathlib import Path
 import point_cloud_utils as pcu
@@ -34,31 +34,31 @@ def merge_meshs(meshs_path: list[Path]) -> any:
         merged_mesh += mesh
     return merged_mesh
 
-def get_oriented_bounding_box_parameters_and_save(mesh_path, output_path):
+def save_save(mesh_path, output_path):
     v, f = pcu.load_mesh_vf(str(mesh_path))
-    resolution = 12_000
-    vw, fw = pcu.make_mesh_watertight(v, f, resolution)
+    # resolution = 12_000
+    # vw, fw = pcu.make_mesh_watertight(v, f, resolution)
 
-    points = np.asarray(vw)
-    pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(points)
-    obb = pcd.get_oriented_bounding_box()
+    # points = np.asarray(vw)
+    # pcd = o3d.geometry.PointCloud()
+    # pcd.points = o3d.utility.Vector3dVector(points)
+    # obb = pcd.get_oriented_bounding_box()
 
-    center = obb.center
-    R = obb.R
-    extent = obb.extent / 2 # for fit into [-1, -1, -1] [1, 1, 1]
+    # center = obb.center
+    # R = obb.R
+    # extent = obb.extent / 2 # for fit into [-1, -1, -1] [1, 1, 1]
 
-    _vw = (np.linalg.inv(R) @ (vw - center).T).T / extent
+    # _vw = (np.linalg.inv(R) @ (vw - center).T).T / extent
 
-    pcu.save_mesh_vf(str(output_path), _vw, fw)
+    pcu.save_mesh_vf(str(output_path), v, f)
 
-    result =  {
-        'center': center.tolist(),
-        'R': R.tolist(),
-        'extent': extent.tolist()
-    }
+    # result =  {
+    #     'center': center.tolist(),
+    #     'R': R.tolist(),
+    #     'extent': extent.tolist()
+    # }
 
-    return result
+    # return result
 
 def process(shape_path: Path, output_info_path, output_mesh_path):
     shape_id = shape_path.stem
@@ -108,8 +108,8 @@ def process(shape_path: Path, output_info_path, output_mesh_path):
         ]
     }))
 
-    get_oriented_bounding_box_parameters_and_save(*([output_mesh_path / (key_name + "_0.ply")] * 2))
-    get_oriented_bounding_box_parameters_and_save(*([output_mesh_path / (key_name + "_1.ply")] * 2))
+    # save_save(*([output_mesh_path / (key_name + "_0.ply")] * 2))
+    # save_save(*([output_mesh_path / (key_name + "_1.ply")] * 2))
 
     print(key_name, shape_path.stem, 'done')
 

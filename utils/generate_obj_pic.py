@@ -3,6 +3,9 @@ import numpy as np
 import pyvista as pv
 from rich import print
 
+import sys
+sys.path.append('..')
+from eval.renders import get_bbox_mesh_pair
 
 bright_colors = ['#E9A7AB', '#F5D76C', '#EB950C', '#DB481F', '#08998A', '#FF2D2B']
 
@@ -40,7 +43,24 @@ def produce_rotate_around_line_matrix(start, direction, angle):
     T_inv = produce_translate_matrix(start, 1)
     return T_inv @ R @ T
 
-def generate_obj_pics(_parts_data, percentage, cinema_position):
+import trimesh
+vertices = np.array([
+    [0.0, 0.0, 0.0],
+    [0.0, 0.00001, 0.0],
+    [0.00001, 0.0, 0.0],
+    [0.0, 0.0, 0.00001]
+])
+
+faces = np.array([
+    [0, 1, 2],
+    [0, 1, 3],
+    [0, 2, 3],
+    [1, 2, 3]
+])
+small_mesh = trimesh.Trimesh(vertices=vertices, faces=faces)
+
+
+def generate_meshs(_parts_data, percentage):
     # print('generate_obj_pics called with percentage = ', percentage)
     parts_data = copy.deepcopy(_parts_data)
     # Sort by dfn
@@ -102,37 +122,85 @@ def generate_obj_pics(_parts_data, percentage, cinema_position):
             p['joint_data_origin'] = list(p['joint_data_origin'][:3])
 
     meshs = []
+    bbox_meshs = []
     for dfn, part in dfn_to_part.items():
         try:
             mesh = part['mesh']
-            obbx = part['obbx']
-            C, R, extent = obbx['center'], obbx['R'], obbx['extent']
-            C, R, extent = np.array(C), np.array(R), np.array(extent)
+            # not to use oriented bounding box.
+            # obbx = part['obbx']
+            # C, R, extent = obbx['center'], obbx['R'], obbx['extent']
+            # C, R, extent = np.array(C), np.array(R), np.array(extent)
 
-            v = mesh.vertices
+            # v = mesh.vertices
 
-            # import pdb; pdb.set_trace()
+            # # import pdb; pdb.set_trace()
 
-            v = C + (R @ (v * extent).T).T
+            # v = C + (R @ (v * extent).T).T
 
-            mesh.vertices = v
+            # mesh.vertices = v
+
+            min_bound, max_bound = mesh.bounds
+            min_bound, max_bound = np.array(min_bound), np.array(max_bound)
+
+            # print(part)
+
+            center, lxyz = part['bbx']
+            center, lxyz = np.array(center), np.array(lxyz)
+
+
+            direction = np.array(part['joint_data_direction'])
+            origin = np.array(part['joint_data_origin'])
+            if np.linalg.norm(direction) > 0.5: # first part do not have any axis mesh.
+                if max(part['limit'][2:]) < 0.1: # only translate.
+                    bbox_mesh = get_bbox_mesh_pair(center, lxyz, axis_d=direction,
+                                                axis_o=(center + direction * 0.1), radius=0.01)
+                else:
+                    bbox_mesh = get_bbox_mesh_pair(center, lxyz, axis_d=direction,
+                                                axis_o=origin, radius=0.01)
+            else:
+                bbox_mesh = get_bbox_mesh_pair(center, lxyz, axis_d=direction,
+                                                axis_o=origin, radius=0.01, without_axis=True)
+
+            tg_min_bound = center - (lxyz / 2)
+            tg_max_bound = center + (lxyz / 2)
+
+            # tg_min_bound, tg_max_bound = np.array(part['bbx'][0]), np.array(part['bbx'][1])
+
+            max_bound[(max_bound - min_bound) < 1e-5] += 0.001
+            tg_max_bound[(tg_max_bound - tg_min_bound) < 1e-5] += 0.001
+
+            mesh.vertices = tg_min_bound + (tg_max_bound - tg_min_bound) * (
+                (mesh.vertices - min_bound) / (max_bound - min_bound)
+            )
 
             mesh.vertices = np.concatenate((
                 mesh.vertices,
                 np.ones((mesh.vertices.shape[0], 1))
             ), axis=1)
 
+            bbox_mesh.vertices = np.concatenate((
+                bbox_mesh.vertices,
+                np.ones((bbox_mesh.vertices.shape[0], 1))
+            ), axis=1)
+
             vertices_on_ground = part['transform'] @ mesh.vertices.T
             vertices_on_ground = vertices_on_ground[0:3, :].T
             mesh.vertices = vertices_on_ground
+
+            bbx_vertices_on_ground = part['transform'] @ bbox_mesh.vertices.T
+            bbx_vertices_on_ground = bbx_vertices_on_ground[0:3, :].T
+            bbox_mesh.vertices = bbx_vertices_on_ground
+
             meshs.append(mesh)
+            bbox_meshs.append(bbox_mesh)
         except Exception as e:
             print('Error', e, 'on generating ', dfn)
 
+    return meshs, bbox_meshs
 
-    # print(dfn_to_part)
+def generate_obj_pics(_parts_data, percentage, cinema_position):
+    meshs, _ =  generate_meshs(_parts_data, percentage)
     plotter = pv.Plotter(off_screen=True)
-    # plotter = pv.Plotter()
     for (idx, mesh) in enumerate(meshs):
         plotter.add_mesh(mesh, color=bright_colors[idx % len(bright_colors)])
 
@@ -142,11 +210,6 @@ def generate_obj_pics(_parts_data, percentage, cinema_position):
     # print(plotter.camera_position)
     buffer = plotter.screenshot()
     plotter.close()
-
-    # for idx, mesh in enumerate(meshs):
-    #     # save mesh to file
-    #     mesh.export(f'mesh{idx}.obj', file_type='obj')
-
 
     return buffer
 

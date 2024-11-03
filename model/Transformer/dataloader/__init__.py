@@ -39,7 +39,6 @@ class TransDiffusionDataset(dataset.Dataset):
 
         self.cut_off = cut_off
 
-
         self.cache = [None] * self.__len__()
         if cache_data:
             for i in trange(len(self.cache), desc="caching data"):
@@ -58,9 +57,11 @@ class TransDiffusionDataset(dataset.Dataset):
         if self.cache[index] is not None:
             return self.cache[index]
 
+        # print(f"Loading {index}th data")
         enc_path, file_path = self.files_path[index]
         data = json.loads(Path(file_path).read_text())
 
+        # print(f"enc_path: {enc_path}")
         enc = np.load(enc_path, allow_pickle=True)
 
         if self.enc_data_fieldname == 'description':
@@ -75,7 +76,11 @@ class TransDiffusionDataset(dataset.Dataset):
         #     json.dump(input, f, indent=4)
 
         for node_idx, node in enumerate(input):
-            node['token'] = torch.tensor(node['token'], dtype=torch.float32)
+            raw_data_info = node['token'][:16]
+            assert len(node['token'][16:]) == 768
+            text_hat = node['packed_info']['text_hat']
+
+            node['token'] = torch.tensor(raw_data_info + text_hat, dtype=torch.float32)
             dfn_fa = node['dfn_fa']
             for idx in range(len(input)):
                 if input[idx]['dfn'] == dfn_fa:
@@ -89,7 +94,7 @@ class TransDiffusionDataset(dataset.Dataset):
             if node.get('dfn_fa') is not None: del node['dfn_fa']
 
         for _ in range(self.max_count_token - len(input)):
-            input.append({'token': copy.deepcopy(self.pad_token), 'fa': 0})
+            input.append({'token': copy.deepcopy(self.pad_token[:80]), 'fa': 0})
 
         transformed_input = {
                 'token': torch.stack([node['token'] for node in input]),

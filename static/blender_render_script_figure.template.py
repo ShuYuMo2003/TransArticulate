@@ -7,12 +7,15 @@ from mathutils import Vector
 bpy.context.preferences.view.language = 'en_US'
 bpy.context.preferences.view.use_translate_interface = True
 
-resolution_x, resolution_y = (400, 400)
+resolution_x, resolution_y = (512, 512)
 resolution_percentage = 100
+
+# r, azimuth, elevation = (8, 0, 30)
+r, azimuth, elevation = float('{{r}}'), float('{{azimuth}}'), float('{{elevation}}')
 
 PI = 3.14159265357389
 
-r, azimuth, elevation = float('{{r}}'), float('{{azimuth}}'), float('{{elevation}}')
+bright_color = ['#802222', '#80a426', '#3e1358', '#154f50', '#91812f', '#000080', '#8B4513', '#CD5C5C', '#222A35', '#2E54A1', '#331807']
 
 def spherical_to_cartesian(r, azimuth, elevation):
     '''
@@ -40,6 +43,30 @@ class CameraParameters:
         camera.data.sensor_width = cls.sensor_width
         camera.data.type = cls.type
 
+def set_material(idx):
+    obj = bpy.context.active_object
+
+    color = bright_color[(idx + 0) % len(bright_color)]
+    color_tuple = (int(color[1:3], 16) / 0xff,
+                   int(color[3:5], 16) / 0xff,
+                   int(color[5:7], 16) / 0xff, 1)
+
+    if not obj.data.materials:
+        mat = bpy.data.materials.new(name="NewMaterial")
+        obj.data.materials.append(mat)
+    else:
+        mat = obj.data.materials[0]
+
+    mat.use_nodes = True
+    nodes = mat.node_tree.nodes
+
+    bsdf = nodes.get("Principled BSDF")
+    if bsdf:
+        bsdf.inputs['Base Color'].default_value = color_tuple
+        bsdf.inputs['Metallic'].default_value = 0.2
+        bsdf.inputs['Roughness'].default_value = 0.7
+        bsdf.inputs['Alpha'].default_value = 0.95
+
 def focus_object(obj0, obj):
     '''
         make obj0 focus on obj
@@ -61,17 +88,23 @@ def check_obj_bound(obj):
 
 def render_shape_blender(objs_path, bg_ply_path, output_path, use_gpu: bool, transparent_bg: bool):
     try: bpy.ops.object.mode_set(mode='OBJECT')
-    except RuntimeError: pass
+    except RuntimeError as e: print(e)
     # Delete all existing objects
     bpy.ops.object.select_all(action='SELECT')
     bpy.ops.object.delete()
 
     # Import objects from obj path
-    obj_files = [f for f in os.listdir(objs_path) if f.endswith('.obj')]
-    for obj_file in obj_files:
+    obj_files = [f for f in os.listdir(objs_path) if f.endswith('.obj') or f.endswith('ply')]
+    obj_files.sort()
+    for idx, obj_file in enumerate(obj_files):
         obj_file_path = os.path.join(objs_path, obj_file)
-        bpy.ops.wm.obj_import(filepath=obj_file_path)
+        if obj_file_path.endswith('obj'):
+            bpy.ops.wm.obj_import(filepath=obj_file_path)
+        else:
+            bpy.ops.wm.ply_import(filepath=obj_file_path)
+        set_material(idx)
 
+    bpy.ops.object.mode_set(mode='OBJECT')
     bpy.ops.object.select_all(action='DESELECT')
     bpy.ops.object.select_all(action='SELECT')
     bpy.ops.object.join()
@@ -110,9 +143,9 @@ def render_shape_blender(objs_path, bg_ply_path, output_path, use_gpu: bool, tra
     edit_node = bgmat.node_tree.nodes["Principled BSDF"]
     edit_node.inputs['Base Color'].default_value = (1, 1, 1, 1) #(0.800204, 0.689428, 0, 1)
     edit_node.inputs['Metallic'].default_value = 0.444109
-    edit_node.inputs['Roughness'].default_value = 0.208096
+    edit_node.inputs['Roughness'].default_value = 1
     edit_node.distribution = 'GGX'
-    edit_node.inputs['Emission Strength'].default_value = 1.0
+    edit_node.inputs['Emission Strength'].default_value = 2.0
 
     if transparent_bg:
         # Open Shadow Catcher, Only show its shadow.
@@ -122,13 +155,13 @@ def render_shape_blender(objs_path, bg_ply_path, output_path, use_gpu: bool, tra
     ## Point Light
     bpy.ops.object.light_add(type='POINT', location=(1, 1, 2))
     light = bpy.context.active_object
-    light.data.energy = 200
+    light.data.energy = 50
     focus_object(light, obj)
 
     ## Plain Light
-    bpy.ops.object.light_add(type='AREA', location=(0, 0, 2))
+    bpy.ops.object.light_add(type='AREA', location=(1, 1, 3))
     light = bpy.context.active_object
-    light.data.energy = 80
+    light.data.energy = 300
     light.rotation_euler = (PI, 0, 0)
 
 
@@ -157,9 +190,11 @@ def render_shape_blender(objs_path, bg_ply_path, output_path, use_gpu: bool, tra
 
     bpy.ops.render.render(write_still=True)
 
-
 if __name__ == '__main__':
     objs_path = "{{objs_path}}" # "D:\\Research\\data\\2780\\textured_objs"
     bg_ply_path = "{{bg_ply_path}}" # "D:\\Research\\bg.ply"
     output_path = "{{output_path}}" # "render_output.png"
-    render_shape_blender(objs_path, bg_ply_path, output_path, True, True)
+
+    render_shape_blender(objs_path, bg_ply_path, output_path, {{USE_GPU}}, True)
+
+    # /root/blender-git/blender-4.2.0-linux-x64/blender --background --cycles-device CUDA --python blender_render.py

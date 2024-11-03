@@ -12,7 +12,7 @@ from .utils import libmcubes
 from .utils.common import make_3d_grid
 from .utils.libsimplify import simplify_mesh
 from .utils.libmise import MISE
-from utils.logging import Log, console
+from utils.mylogging import Log, console
 import time
 
 

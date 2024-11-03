@@ -1,6 +1,6 @@
 base_on_model: null
 
-seed: 123456790
+seed: 1234567890
 wandb:
   use: true
   project: TF_Diffusion
@@ -11,7 +11,7 @@ num_epochs: 1000001
 
 dataset_n_dataloader:
   n_workers: 10
-  batch_size: 64
+  batch_size: 48
 
   dataset_path: data/datasets/4_transformer_dataset
   cut_off: -1
@@ -19,10 +19,10 @@ dataset_n_dataloader:
 
 checkpoint:
   path: train_root_dir/Transformer_Diffusion/checkpoint
-  freq: 2000
+  freq: 10000
 
 part_structure:
-  bounding_box: 15 # 3 + 9 + 3
+  bounding_box: 6 # 3 + (3 + 3) # center + length of x, y, z (mean, logvar)
   joint_data_origin: 3
   joint_data_direction: 3
   limit: 4
@@ -46,11 +46,11 @@ transformer_model_paramerter:
   ffn_dropout: 0.1
 
   # channel, weight, height
-  vq_expand_dim: [32, 4, 4]
-  n_embed: 256
-  vq_beta: 0.25
-  vq_loss_weight: 0.1
-  before_vq_net_deepth: 4
+  # vq_expand_dim: [32, 4, 4]
+  # n_embed: 256
+  # vq_beta: 0.25
+  # vq_loss_weight: 0.1
+  # before_vq_net_deepth: 4
 
   encoder_kv_dim: 1024 # decided by pretrained encoder model.
   post_encoder_deepth: 4
@@ -77,7 +77,7 @@ optimizer_paramerter:
     tf_loss: 10
     th_loss: 5
     zl_loss: 2
-    vq_loss: 1
+    # vq_loss: 1
     # df_loss: 2
 
 
