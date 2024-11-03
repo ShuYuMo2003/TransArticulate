@@ -170,8 +170,8 @@ class Evaluater():
             part_info['mesh'] = self.latentcode_evaluator.generate_mesh(z.unsqueeze(0))
             # import pdb; pdb.set_trace()
             part_info['z'] = z
-            raw_points_sdf = self.latentcode_evaluator.generate_uniform_point_cloud_inside_mesh(z.unsqueeze(0))
-            part_info['points'], part_info['rho'] = fit_into_bounding_box(raw_points_sdf, part_info['bbx'])
+            raw_points_sdf, rho = self.latentcode_evaluator.generate_uniform_point_cloud_inside_mesh(z.unsqueeze(0))
+            part_info['points'], part_info['rho'] = fit_into_bounding_box(raw_points_sdf, rho, part_info['bbx'])
 
             processed_node.update(part_info)
             processed_nodes.append(processed_node)
@@ -205,6 +205,11 @@ class Evaluater():
             visualize_obj_high_q(processed_nodes, output_temp_path / str(ratio), output_path / str(ratio), ratio)
 
         return atten_weights_list
+
+    def inference_dat_file_only(self, text, output_dat_path):
+        processed_nodes, atten_weights_list = self.inference_from_text(text)
+        with open(output_dat_path, 'wb') as f:
+            f.write(pickle.dumps(processed_nodes))
 
     def inference(self, text):
         number_of_trial = self.number_of_trial

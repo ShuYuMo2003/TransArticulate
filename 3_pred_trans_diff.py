@@ -8,6 +8,7 @@ from rich import print
 from tqdm import tqdm
 import time
 import random
+import shutil
 
 if __name__ == '__main__':
     config = parse_config_from_args()
@@ -22,8 +23,25 @@ if __name__ == '__main__':
 
 
     OPTION = 2
+    if OPTION == -1:
+        needed_category = ['StorageFurniture']
+        output_path = Path('data/datasets/6_ours_obj_dats')
+        shutil.rmtree(output_path, ignore_errors=True)
+        output_path.mkdir(exist_ok=True, parents=True)
 
-    if OPTION == 0:
+        for obj_path in tqdm(obj_paths, 'obj count'):
+            obj_name = obj_path.stem
+            category = obj_name.split('_')[0]
+            if category not in needed_category: continue
+
+            for text_path in tqdm(list(obj_path.glob('*')), 'text count'):
+                text_name = text_path.stem
+                input_text = text_path.read_text()
+                cur_output_path = output_path / ((obj_name + text_name) + '.dat')
+
+                evaluator.inference_dat_file_only(input_text, cur_output_path)
+
+    elif OPTION == 0:
         for obj_path in tqdm(obj_paths, 'obj count'):
             obj_name = obj_path.stem
             for text_path in tqdm(list(obj_path.glob('*')), 'text count'):
@@ -47,9 +65,8 @@ if __name__ == '__main__':
                 evaluator.inference_to_output_path(text_content, output_path / str(rep), blender_generated_gif=True)
     elif OPTION == 2:
 
-        for obj_name in ['StorageFurniture_45632_1', 'StorageFurniture_45374_2', 'StorageFurniture_45622_1',
-                         'StorageFurniture_46109_2', 'USB_85_1', 'USB_2062_1', 'Bottle_3571_1']:
-            output_path = Path('elog') / f"Final_OP1_SF_45632_{tt}" / f"{obj_name}"
+        for obj_name in ['StorageFurniture_45636_3', 'Bottle_3571_1']:
+            output_path = Path('elog') / f"Final_OP1_SF_45636_3_{tt}" / f"{obj_name}"
             obj_infos = obj_name.split('_')
             text_content = (text_datasets / '_'.join(obj_infos[:2]) / (str(obj_infos[2])+'.txt')).read_text()
 

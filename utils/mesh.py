@@ -74,6 +74,10 @@ def uniform_sample_point_inside_mesh(model, shape_feature, max_batch=(1<<16), re
     points = create_cube(resolution)
     total = points.shape[0]
     cur = 0
+    max_bound, min_bound = points.max(axis=0), points.min(axis=0)
+
+    rho = points.shape[0] / (max_bound - min_bound).prod()
+
     while cur < total:
         query_point = points[cur : min(cur + max_batch, total), 0:3].unsqueeze(0)
 
@@ -88,7 +92,7 @@ def uniform_sample_point_inside_mesh(model, shape_feature, max_batch=(1<<16), re
 
     mask = points[:, 3] < 0
 
-    return points[mask]
+    return points[mask], rho
 
 
 # create cube from (-1,-1,-1) to (1,1,1) and uniformly sample points for marching cube

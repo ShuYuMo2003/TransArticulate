@@ -26,7 +26,7 @@ def smooth_mesh(mesh: trimesh.Trimesh):
     return trimesh.load("temp-smooth.ply")
 
 
-def fit_into_bounding_box(points_sdf, bbx):
+def fit_into_bounding_box(points_sdf, raw_rho, bbx):
     points = points_sdf[:, 0:3]
     sdfs = points_sdf[:, [3]]
 
@@ -55,7 +55,9 @@ def fit_into_bounding_box(points_sdf, bbx):
     cube_0 = (max_bound - min_bound).prod()     # 1
     cube_1 = (tg_max_bound - tg_min_bound).prod() # 2
 
-    return new_points_sdf, cube_0 / cube_1
+    rho = raw_rho / (cube_1 / cube_0)
+
+    return new_points_sdf, rho
 
 def generate_random_string(length):
     characters = 'abcdefghijklmnopqrstuvwxyz' + '0123456789'
