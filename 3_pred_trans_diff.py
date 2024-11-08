@@ -22,7 +22,7 @@ if __name__ == '__main__':
     tt = time.strftime("%m-%d-%I%p-%M-%S")
 
 
-    OPTION = 2
+    OPTION = 3
     if OPTION == -1:
         needed_category = ['StorageFurniture']
         output_path = Path('data/datasets/6_ours_obj_dats')
@@ -76,3 +76,18 @@ if __name__ == '__main__':
                 import pickle
                 with open(output_path / str(rep) / 'atten_data.pkl', 'wb') as file:
                     pickle.dump(atten_weights_list, file)
+    elif OPTION == 3: # draw head figure
+
+        target_obj_name = ['StorageFurniture_45091_1', 'StorageFurniture_45636_3', 'StorageFurniture_45420_1', 'StorageFurniture_46109_2',
+                           'StorageFurniture_45267_1', 'USB_113_2', 'Bottle_3571_1']
+        output_path = Path('final_result_output') / tt
+        output_path.mkdir(exist_ok=True, parents=True)
+
+        for obj_name in target_obj_name:
+            obj_infos = obj_name.split('_')
+            text_content = (text_datasets / '_'.join(obj_infos[:2]) / (str(obj_infos[2])+'.txt')).read_text()
+
+            for rep in range(5):
+                cur_output_dir = output_path / str(rep) / obj_name
+                evaluator.inference_to_output_path(text_content, cur_output_dir, blender_generated_gif=True)
+

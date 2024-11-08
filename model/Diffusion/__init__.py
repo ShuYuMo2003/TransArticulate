@@ -42,7 +42,7 @@ class Diffusion(TransArticulatedBaseModule):
         except Exception as e:
             print("DO NOT FOUND CUSTOM CKPT. USE DEFAULT CKPT. : ", e)
             import time; time.sleep(2)
-            self.sdf = SDFAutoEncoder.load_from_checkpoint('train_root_dir/SDF/checkpoint/10-23-08PM-38-18/sdf_epoch=1434-loss=0.00183.ckpt')
+            self.sdf = SDFAutoEncoder.load_from_checkpoint('train_root_dir/SDF/checkpoint/10-23-08PM-38-18/sdf_epoch=1414-loss=0.00461.ckpt')
         self.sdf.eval()
 
     def configure_optimizers(self):

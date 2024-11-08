@@ -7,7 +7,7 @@ from mathutils import Vector
 bpy.context.preferences.view.language = 'en_US'
 bpy.context.preferences.view.use_translate_interface = True
 
-resolution_x, resolution_y = (512, 512)
+resolution_x, resolution_y = (768, 768)
 resolution_percentage = 100
 
 # r, azimuth, elevation = (8, 0, 30)

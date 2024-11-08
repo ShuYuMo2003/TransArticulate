@@ -2,6 +2,10 @@ import torch
 from pathlib import Path
 from tqdm import tqdm
 
+import trimesh
+
+import utils.mesh as MeshUtils
+
 from ..mylogging import Log
 from .gensdf_generator import Generator3DSDF
 from ..mesh import uniform_sample_point_inside_mesh
@@ -37,7 +41,13 @@ class GenSDFLatentCodeEvaluator:
             z: latent code with 1 * dim_z
         '''
         recon_latents = self.gensdf.vae_model.decode(z)
-        return self.generator.generate_from_latent(recon_latents[[0]])
+        output_mesh = (self.eval_mesh_output_path / f'GenSDFLatentCodeEvaluator_{0}.ply').as_posix()
+        MeshUtils.create_mesh(self.gensdf, recon_latents[[0]],
+                        output_mesh, N=768,
+                        max_batch=(1 << 18),
+                        from_plane_features=True)
+        mesh = trimesh.load(output_mesh)
+        return mesh
 
     def generate_uniform_point_cloud_inside_mesh(self, z: torch.Tensor):
         '''

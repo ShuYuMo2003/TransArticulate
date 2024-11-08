@@ -8,6 +8,7 @@ wandb/
 cache/
 3rd/
 elog/
+final_result_output/
 
 # Part B: gitignore for python projects in template.
 # Byte-compiled / optimized / DLL files
