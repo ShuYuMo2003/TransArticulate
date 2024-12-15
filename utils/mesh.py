@@ -76,7 +76,7 @@ def uniform_sample_point_inside_mesh(model, shape_feature, max_batch=(1<<16), re
     cur = 0
     max_bound, min_bound = points.max(axis=0), points.min(axis=0)
 
-    rho = points.shape[0] / (max_bound - min_bound).prod()
+    rho = points.shape[0] / (max_bound.values - min_bound.values).prod()
 
     while cur < total:
         query_point = points[cur : min(cur + max_batch, total), 0:3].unsqueeze(0)
