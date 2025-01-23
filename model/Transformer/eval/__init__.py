@@ -94,9 +94,15 @@ class Evaluater():
         Log.info('    - Difference with end token: %s', difference.item())
         return difference < self.equal_part_threshold
 
-    def inference_from_text(self, text):
+    def inference_from_text(self, text, need_mesh=True, enc_data=None):
         Log.info('[1] Inference text: %s', len(text))
-        encoded_text = self.encode_text(text)
+        if enc_data is None:
+            encoded_text = self.encode_text(text)
+            Log.info('use text.')
+        else:
+            encoded_text = enc_data.unsqueeze(0).to(self.device)
+            Log.info('use encoded data.')
+
         exist_node = {
             'fa': torch.tensor([0]).to(self.device),
             'token': copy.deepcopy((self.start_token[:16])).unsqueeze(0).to(self.device),
@@ -167,7 +173,7 @@ class Evaluater():
             part_info = untokenize_part_info(token)
 
             z = torch.tensor(part_info['latent_code']).to(self.device)
-            part_info['mesh'] = self.latentcode_evaluator.generate_mesh(z.unsqueeze(0))
+            if need_mesh: part_info['mesh'] = self.latentcode_evaluator.generate_mesh(z.unsqueeze(0))
             # import pdb; pdb.set_trace()
             part_info['z'] = z
             raw_points_sdf, rho = self.latentcode_evaluator.generate_uniform_point_cloud_inside_mesh(z.unsqueeze(0))
@@ -190,7 +196,7 @@ class Evaluater():
         Log.info("[Write] %s", output_tex_path)
 
         # output_gif_path = output_path / "simple"
-        # generate_gif_toy(processed_nodes, output_gif_path, bar_prompt="   - Generate Frames", n_frame=10, blender_generated_gif=blender_generated_gif)
+        # generate_gif_toy(processed_nodes, output_gif_path, bar_prompt="   - Generate Frames", n_frame=50, blender_generated_gif=blender_generated_gif)
         # Log.info("[Write] %s", output_gif_path)
 
         output_data_path = output_path / "output.dat"
@@ -206,8 +212,8 @@ class Evaluater():
 
         return atten_weights_list
 
-    def inference_dat_file_only(self, text, output_dat_path):
-        processed_nodes, atten_weights_list = self.inference_from_text(text)
+    def inference_dat_file_only(self, text, output_dat_path, enc_data=None):
+        processed_nodes, atten_weights_list = self.inference_from_text(text, need_mesh=False, enc_data=enc_data)
         with open(output_dat_path, 'wb') as f:
             f.write(pickle.dumps(processed_nodes))
 

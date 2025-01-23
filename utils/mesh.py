@@ -34,7 +34,7 @@ def create_mesh(
 
     # the voxel_origin is the (bottom, left, down) corner, not the middle
     voxel_origin = [-1, -1, -1]
-    voxel_size = 2.0 / (N - 1)
+    voxel_size = 2 / (N - 1)
     cube = create_cube(N)
     cube_points = cube.shape[0]
 
@@ -76,7 +76,9 @@ def uniform_sample_point_inside_mesh(model, shape_feature, max_batch=(1<<16), re
     cur = 0
     max_bound, min_bound = points.max(axis=0), points.min(axis=0)
 
-    rho = points.shape[0] / (max_bound.values - min_bound.values).prod()
+    rho = points.shape[0] / (max_bound.values[:3] - min_bound.values[:3]).prod()
+
+    print("FLAG 0 rho = ", rho, '#0=', points.shape[0], '#1=', max_bound.values, '#2=', min_bound.values, '#3=', (max_bound.values - min_bound.values).prod())
 
     while cur < total:
         query_point = points[cur : min(cur + max_batch, total), 0:3].unsqueeze(0)
@@ -102,8 +104,8 @@ def create_cube(N):
     samples = torch.zeros(N ** 3, 4)
 
     # the voxel_origin is the (bottom, left, down) corner, not the middle
-    voxel_origin = [-1, -1, -1]
-    voxel_size = 2.0 / (N - 1)
+    voxel_origin = [-1.1, -1.1, -1.1]
+    voxel_size = 2.2 / (N - 1)
 
     # transform first 3 columns
     # to be the x, y, z index

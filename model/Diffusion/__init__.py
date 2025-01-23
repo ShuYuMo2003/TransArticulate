@@ -41,8 +41,9 @@ class Diffusion(TransArticulatedBaseModule):
             self.sdf = SDFAutoEncoder.load_from_checkpoint(self.e_config['sdf_model_path'])
         except Exception as e:
             print("DO NOT FOUND CUSTOM CKPT. USE DEFAULT CKPT. : ", e)
-            import time; time.sleep(2)
-            self.sdf = SDFAutoEncoder.load_from_checkpoint('train_root_dir/SDF/checkpoint/10-23-08PM-38-18/sdf_epoch=1414-loss=0.00461.ckpt')
+            import time; time.sleep(2); import yaml
+            cfg = yaml.safe_load(Path('/root/workspace/csm76lvhri0c73eksvjg/raw_TransArticulate/configs/SDF/train.yaml').read_text())
+            self.sdf = SDFAutoEncoder(cfg)
         self.sdf.eval()
 
     def configure_optimizers(self):

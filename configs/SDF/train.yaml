@@ -8,8 +8,8 @@ wandb:
 default_root_dir: train_root_dir/SDF
 
 dataset_n_dataloader:
-  batch_size: 16
-  n_workers: 10
+  batch_size: 24
+  n_workers: 12
 
   dataset_dir: data/datasets
   samples_per_mesh: 16000

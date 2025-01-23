@@ -1,5 +1,6 @@
 checkpoint_path: /root/workspace/csm76lvhri0c73eksvjg/raw_TransArticulate/data/ckpts/tf_diff.ckpt
 
+OPTION: 4
 
 eval_output_path: log/TF-Diff/
 

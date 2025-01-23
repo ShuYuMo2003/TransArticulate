@@ -46,13 +46,7 @@ class VQEmbeddingGSSoft(nn.Module):
 
         dist = RelaxedOneHotCategorical(tau, logits=logits)
 
-        # if self.training:
         samples = dist.rsample().view(N, -1, M)
-
-        # else:
-        #     samples = torch.argmax(dist.probs, dim=-1)
-        #     samples = F.one_hot(samples, M).float()
-        #     samples = samples.view(N, -1, M)
 
         quantized = torch.bmm(samples, self.embedding)
         quantized = quantized.view(N, B, 1, 1, D)

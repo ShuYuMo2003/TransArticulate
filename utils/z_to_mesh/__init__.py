@@ -7,7 +7,7 @@ import trimesh
 import utils.mesh as MeshUtils
 
 from ..mylogging import Log
-from .gensdf_generator import Generator3DSDF
+# from .gensdf_generator import Generator3DSDF
 from ..mesh import uniform_sample_point_inside_mesh
 
 
@@ -21,17 +21,17 @@ class GenSDFLatentCodeEvaluator:
         self.eval_mesh_output_path = eval_mesh_output_path
         eval_mesh_output_path.mkdir(exist_ok=True, parents=True)
 
-        self.generator = Generator3DSDF(
-            model=self.gensdf,
-            threshold=0,
-            points_batch_size = max_batch,
-            resolution0=resolution,
-            upsampling_steps=4,
-            # refinement_step=30, # Same Error as @ https://discuss.pytorch.org/t/runtimeerror-trying-to-backward-through-the-graph-a-second-time-but-the-buffers-have-already-been-freed-specify-retain-graph-true-when-calling-backward-the-first-time/6795
-            device=device,
-            positive_inside=False,
-            simplify_nfaces=10000
-        )
+        # self.generator = Generator3DSDF(
+        #     model=self.gensdf,
+        #     threshold=0,
+        #     points_batch_size = max_batch,
+        #     resolution0=64,
+        #     upsampling_steps=4,
+        #     # refinement_step=30, # Same Error as @ https://discuss.pytorch.org/t/runtimeerror-trying-to-backward-through-the-graph-a-second-time-but-the-buffers-have-already-been-freed-specify-retain-graph-true-when-calling-backward-the-first-time/6795
+        #     device=device,
+        #     positive_inside=False,
+        #     simplify_nfaces=10000
+        # )
 
         Log.info('Resolution = %d', resolution)
         Log.info('Max Batch = %d', max_batch)
@@ -43,8 +43,8 @@ class GenSDFLatentCodeEvaluator:
         recon_latents = self.gensdf.vae_model.decode(z)
         output_mesh = (self.eval_mesh_output_path / f'GenSDFLatentCodeEvaluator_{0}.ply').as_posix()
         MeshUtils.create_mesh(self.gensdf, recon_latents[[0]],
-                        output_mesh, N=768,
-                        max_batch=(1 << 18),
+                        output_mesh, N=256,
+                        max_batch=(1 << 16),
                         from_plane_features=True)
         mesh = trimesh.load(output_mesh)
         return mesh

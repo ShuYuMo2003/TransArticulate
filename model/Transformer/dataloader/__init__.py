@@ -12,7 +12,7 @@ class TransDiffusionDataset(dataset.Dataset):
     def __init__(self, dataset_path: str, cut_off: int, enc_data_fieldname: str, cache_data: bool=True):
         self.dataset_root_path = Path(dataset_path)
 
-        assert enc_data_fieldname in ['description', 'image']
+        assert enc_data_fieldname in ['description', 'images']
         self.enc_data_fieldname = enc_data_fieldname
 
         # import meta.json

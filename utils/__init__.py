@@ -55,6 +55,7 @@ def fit_into_bounding_box(points_sdf, raw_rho, bbx):
     cube_0 = (max_bound - min_bound).prod()     # 1
     cube_1 = (tg_max_bound - tg_min_bound).prod() # 2
 
+    print("FLAG 1 rRho = ", raw_rho, 'cube1=', cube_1, 'cube0=', cube_0)
     rho = raw_rho / (cube_1 / cube_0)
 
     return new_points_sdf, rho

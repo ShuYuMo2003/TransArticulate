@@ -56,6 +56,8 @@ class SDFAutoEncoder(TransArticulatedBaseModule):
         # STEP 1: pointcloud -> triplane features
         plane_features = self.encoder.get_plane_features(pc)
 
+        # print(plane_features[0].shape)
+
         # STEP 2: triplane features -> z -> triplane features
         original_features = torch.cat(plane_features, dim=1)
         out = self.vae_model(original_features) # out = [self.decode(z), input, mu, log_var, z]

@@ -39,7 +39,14 @@ class TransDiffusionCombineModel(TransArticulatedBaseModule):
         self.part_structure = config['part_structure']
 
         Log.info('Using pretrained diffusion model: %s', config['diffusion_model']['pretrained_model_path'])
-        self.diffusion = Diffusion.load_from_checkpoint(config['diffusion_model']['pretrained_model_path'])
+        try:
+            self.diffusion = Diffusion.load_from_checkpoint(config['diffusion_model']['pretrained_model_path'])
+        except Exception as e:
+            print("DO NOT FOUND CUSTOM DIFFUSION CKPT. USE DEFAULT CKPT. : ", e)
+            import time; time.sleep(2)
+            cfg = yaml.safe_load(Path('/root/workspace/csm76lvhri0c73eksvjg/raw_TransArticulate/configs/Diff/train.yaml').read_text())
+            self.diffusion = Diffusion(cfg)
+
         self.diff_config = self.diffusion.diff_config
         self.config['diff_config'] = self.diffusion.diff_config
         self.z_mini_encoder = self.diffusion.z_mini_encoder
@@ -55,7 +62,8 @@ class TransDiffusionCombineModel(TransArticulatedBaseModule):
         except Exception as e:
             print("DO NOT FOUND CUSTOM CKPT. USE DEFAULT CKPT. : ", e)
             import time; time.sleep(2)
-            self.sdf = SDFAutoEncoder.load_from_checkpoint('train_root_dir/SDF/checkpoint/10-23-08PM-38-18/sdf_epoch=1414-loss=0.00461.ckpt')
+            cfg = yaml.safe_load(Path('/root/workspace/csm76lvhri0c73eksvjg/raw_TransArticulate/configs/SDF/train.yaml').read_text())
+            self.sdf = SDFAutoEncoder(cfg)
 
         self.sdf.eval()
         self.e_config['eval_mesh_output_path'] = Path(self.e_config['eval_mesh_output_path'])
